@@ -1,0 +1,5 @@
+streamlit
+pandas
+APScheduler
+python-dotenv
+MLB-StatsAPI
