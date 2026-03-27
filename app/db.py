@@ -31,7 +31,7 @@ def init_db():
                 name        TEXT NOT NULL,
                 team        TEXT DEFAULT '',
                 position    TEXT DEFAULT '',
-                role        TEXT DEFAULT 'hitter',  -- 'hitter' ou 'pitcher'
+                role        TEXT DEFAULT 'hitter',
                 added_at    TEXT DEFAULT (date('now'))
             );
 
@@ -42,16 +42,48 @@ def init_db():
                 game_pk     INTEGER,
                 role        TEXT,
                 total       REAL,
-                breakdown   TEXT,    -- JSON
-                raw_stats   TEXT,    -- JSON
+                breakdown   TEXT,
+                raw_stats   TEXT,
                 synced_at   TEXT DEFAULT (datetime('now')),
                 UNIQUE(player_id, date)
+            );
+
+            CREATE TABLE IF NOT EXISTS gameweeks (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                label       TEXT NOT NULL,
+                start_date  TEXT NOT NULL,
+                end_date    TEXT NOT NULL,
+                UNIQUE(start_date, end_date)
             );
 
             CREATE INDEX IF NOT EXISTS idx_scores_date     ON scores(date);
             CREATE INDEX IF NOT EXISTS idx_scores_player   ON scores(player_id);
         """)
     logger.info(f"DB initialisée : {DB_PATH}")
+
+
+# ─── GAMEWEEKS ────────────────────────────────────────────────────────────────
+def save_gameweek(label: str, start_date: str, end_date: str) -> int:
+    with _conn() as con:
+        cur = con.execute("""
+            INSERT INTO gameweeks(label, start_date, end_date)
+            VALUES (?, ?, ?)
+            ON CONFLICT(start_date, end_date) DO UPDATE SET label=excluded.label
+        """, (label, start_date, end_date))
+        return cur.lastrowid
+
+
+def get_gameweeks() -> list[dict]:
+    with _conn() as con:
+        rows = con.execute(
+            "SELECT * FROM gameweeks ORDER BY start_date DESC"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def delete_gameweek(gw_id: int):
+    with _conn() as con:
+        con.execute("DELETE FROM gameweeks WHERE id=?", (gw_id,))
 
 
 # ─── ROSTER ───────────────────────────────────────────────────────────────────

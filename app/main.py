@@ -11,6 +11,7 @@ import logging
 import db
 import sync
 from mlb_fetcher import search_player
+import so7 as so7_engine
 
 logging.basicConfig(
     level=logging.INFO,
@@ -100,7 +101,7 @@ with st.sidebar:
     st.caption("🔄 Synchro auto toutes les 15 min (13h–04h UTC)")
 
 # ─── Tabs principaux ──────────────────────────────────────────────────────────
-tab_scores, tab_history, tab_sync = st.tabs(["📊 Scores du jour", "📅 Historique", "🔄 Synchronisation"])
+tab_scores, tab_history, tab_so7, tab_sync = st.tabs(["📊 Scores du jour", "📅 Historique", "🏆 Best So7", "🔄 Synchronisation"])
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 1 — Scores du jour (ou date choisie)
@@ -286,7 +287,279 @@ with tab_history:
                 st.info("Aucun score dans cette plage de dates.")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TAB 3 — Synchronisation manuelle avancée
+# TAB 3 — Best So7 (Meilleure équipe sur une gameweek)
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_so7:
+    st.subheader("🏆 Meilleure équipe So7 — Simulation gameweek")
+    st.caption(
+        "Calcule rétrospectivement la meilleure lineup So7 possible avec ton roster "
+        "sur la période choisie, selon le barême Sorare officiel."
+    )
+
+    # ─── Sélection / gestion des gameweeks ────────────────────────────────────
+    col_gw_left, col_gw_right = st.columns([2, 1])
+
+    with col_gw_right:
+        st.markdown("**📁 Sauvegarder cette gameweek**")
+        gw_label = st.text_input("Nom", placeholder="ex: GW 42 — 26-30 mars", key="gw_label")
+        gw_s = st.date_input("Début", key="gw_save_start",
+                             value=datetime.date.today() - datetime.timedelta(days=6))
+        gw_e = st.date_input("Fin", key="gw_save_end",
+                             value=datetime.date.today() - datetime.timedelta(days=3))
+        if st.button("💾 Sauvegarder", use_container_width=True):
+            if gw_label:
+                db.save_gameweek(gw_label, gw_s.isoformat(), gw_e.isoformat())
+                st.success("Gameweek sauvegardée !")
+                st.rerun()
+
+        # Liste des gameweeks sauvegardées
+        saved_gws = db.get_gameweeks()
+        if saved_gws:
+            st.markdown("**📋 Gameweeks sauvegardées**")
+            for gw in saved_gws:
+                c1, c2 = st.columns([3, 1])
+                c1.markdown(f"**{gw['label']}**  \n`{gw['start_date']}` → `{gw['end_date']}`")
+                if c2.button("🗑", key=f"del_gw_{gw['id']}"):
+                    db.delete_gameweek(gw["id"])
+                    st.rerun()
+
+    with col_gw_left:
+        st.markdown("**📅 Choisir la période à analyser**")
+
+        # Quick-select depuis les gameweeks sauvegardées
+        saved_gws = db.get_gameweeks()
+        gw_options = {f"{g['label']} ({g['start_date']} → {g['end_date']})": g
+                      for g in saved_gws}
+        gw_options["— Période manuelle —"] = None
+
+        selected_gw_label = st.selectbox("Gameweek sauvegardée", list(gw_options.keys()),
+                                         index=len(gw_options) - 1)
+        selected_gw = gw_options[selected_gw_label]
+
+        if selected_gw:
+            so7_start = datetime.date.fromisoformat(selected_gw["start_date"])
+            so7_end   = datetime.date.fromisoformat(selected_gw["end_date"])
+            st.info(f"Période : **{so7_start}** → **{so7_end}**")
+        else:
+            so7_start = st.date_input("Début de gameweek", key="so7_start",
+                                      value=datetime.date.today() - datetime.timedelta(days=5))
+            so7_end   = st.date_input("Fin de gameweek", key="so7_end",
+                                      value=datetime.date.today() - datetime.timedelta(days=1))
+
+        if so7_start > so7_end:
+            st.error("La date de début doit être avant la date de fin.")
+            st.stop()
+
+        # Synchro rapide si des jours manquent
+        nb_days = (so7_end - so7_start).days + 1
+        st.markdown(f"Période de **{nb_days} jour(s)** : "
+                    + ", ".join((so7_start + datetime.timedelta(days=i)).strftime("%d/%m")
+                                for i in range(nb_days)))
+
+        if st.button("🚀 Calculer la meilleure So7", type="primary", use_container_width=True):
+            # 1. Synchro auto des jours manquants
+            missing = [
+                so7_start + datetime.timedelta(days=i)
+                for i in range(nb_days)
+                if not db.is_date_synced((so7_start + datetime.timedelta(days=i)).isoformat())
+            ]
+            if missing:
+                with st.spinner(f"Synchro {len(missing)} jour(s) manquant(s)…"):
+                    for d in missing:
+                        sync.sync_date(d, force=False)
+
+            # 2. Calcul des scores cumulés sur la gameweek
+            gw_scores = so7_engine.compute_gameweek_scores(
+                so7_start.isoformat(), so7_end.isoformat()
+            )
+            st.session_state["so7_result"] = so7_engine.optimize_so7(gw_scores)
+            st.session_state["so7_scores"] = gw_scores
+            st.session_state["so7_start"]  = so7_start
+            st.session_state["so7_end"]    = so7_end
+
+    # ─── Affichage du résultat ─────────────────────────────────────────────────
+    st.markdown("---")
+
+    if "so7_result" not in st.session_state or st.session_state["so7_result"] is None:
+        if db.get_roster():
+            st.info("👆 Configure la période et clique sur **Calculer la meilleure So7**.")
+        else:
+            st.warning("Roster vide — ajoute des joueurs dans la sidebar.")
+    else:
+        result    = st.session_state["so7_result"]
+        gw_scores = st.session_state["so7_scores"]
+        gw_s_disp = st.session_state["so7_start"]
+        gw_e_disp = st.session_state["so7_end"]
+
+        lineup = result["lineup"]
+        total  = result["total"]
+        bench  = result["bench"]
+
+        # ── Métriques ──────────────────────────────────────────────────────────
+        best_player = max(lineup.values(), key=lambda p: p["total_gw"])
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("🏆 Score équipe So7", f"{total:.1f} pts")
+        m2.metric("📅 Période",
+                  f"{gw_s_disp.strftime('%d/%m')} → {gw_e_disp.strftime('%d/%m')}")
+        m3.metric("⭐ MVP", f"{best_player['name']} ({best_player['total_gw']:.1f})")
+        m4.metric("🎮 Matchs joués",
+                  sum(p["games_played"] for p in lineup.values()))
+
+        st.markdown("---")
+
+        # ── Lineup So7 ─────────────────────────────────────────────────────────
+        st.markdown("### 🏟️ Meilleure lineup So7")
+
+        # CSS spécifique So7
+        st.markdown("""
+        <style>
+        .so7-slot {
+            background: linear-gradient(135deg, #161b22 0%, #1c2128 100%);
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin-bottom: 10px;
+        }
+        .so7-slot-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            color: #8b949e;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+        .so7-player-name { font-size: 1.1rem; font-weight: 700; color: #e6edf3; }
+        .so7-player-sub  { font-size: 0.82rem; color: #8b949e; }
+        .so7-score       { font-size: 1.6rem; font-weight: 800; }
+        .so7-score-pos   { color: #3fb950; }
+        .so7-score-neg   { color: #f85149; }
+        .slot-sp   { border-left: 3px solid #388bfd; }
+        .slot-rp   { border-left: 3px solid #79c0ff; }
+        .slot-cmi  { border-left: 3px solid #d2a8ff; }
+        .slot-ci   { border-left: 3px solid #f0883e; }
+        .slot-of   { border-left: 3px solid #3fb950; }
+        .slot-xh   { border-left: 3px solid #ffa657; }
+        .slot-flex { border-left: 3px solid #ff7b72; }
+        </style>
+        """, unsafe_allow_html=True)
+
+        slot_css = {
+            "SP": "slot-sp", "RP": "slot-rp", "C_MI": "slot-cmi",
+            "CI": "slot-ci", "OF": "slot-of", "XH": "slot-xh", "FLEX": "slot-flex",
+        }
+
+        # Affichage en 2 colonnes : pitchers | hitters
+        col_pitch, col_hit = st.columns(2)
+
+        for slot in so7_engine.SO7_SLOTS:
+            if slot not in lineup:
+                continue
+            player = lineup[slot]
+            label  = so7_engine.SLOT_LABELS[slot]
+            sc     = player["total_gw"]
+            sc_cls = "so7-score-pos" if sc >= 0 else "so7-score-neg"
+            css    = slot_css.get(slot, "")
+            gp     = player["games_played"]
+
+            # Détail des scores jour par jour
+            days_str = "  ".join(
+                f"`{d[-5:]}` **{v:+.0f}**" if v is not None else f"`{d[-5:]}` —"
+                for d, v in sorted(player["days"].items())
+            )
+
+            html = f"""
+            <div class="so7-slot {css}">
+              <div class="so7-slot-label">{label}</div>
+              <div class="so7-player-name">{player['name']}</div>
+              <div class="so7-player-sub">{player['team']} · {player['position']} · {gp} match(s)</div>
+            </div>
+            """
+
+            target_col = col_pitch if slot in ("SP", "RP") else col_hit
+            with target_col:
+                st.markdown(html, unsafe_allow_html=True)
+                c_score, c_days = st.columns([1, 3])
+                c_score.markdown(
+                    f"<div class='so7-score {sc_cls}'>{sc:+.1f}</div>",
+                    unsafe_allow_html=True
+                )
+                c_days.markdown(days_str)
+
+        # ── Récap tableau ──────────────────────────────────────────────────────
+        st.markdown("---")
+        st.markdown("### 📊 Récapitulatif complet du roster")
+
+        # Construire toutes les dates de la GW
+        nb_d = (gw_e_disp - gw_s_disp).days + 1
+        all_dates = [(gw_s_disp + datetime.timedelta(days=i)).isoformat()
+                     for i in range(nb_d)]
+
+        rows_recap = []
+        used_in_lineup = {lineup[s]["player_id"] for s in lineup}
+
+        for p in gw_scores:
+            slot_used = next(
+                (so7_engine.SLOT_LABELS[s] for s in lineup if lineup[s]["player_id"] == p["player_id"]),
+                "— Banc"
+            )
+            row = {
+                "Joueur":   p["name"],
+                "Pos":      p["position"],
+                "Slot So7": slot_used,
+                "Total GW": p["total_gw"],
+                "Matchs":   p["games_played"],
+            }
+            for d in all_dates:
+                row[d[5:]] = p["days"].get(d)   # format MM-DD
+            rows_recap.append(row)
+
+        df_recap = pd.DataFrame(rows_recap).sort_values("Total GW", ascending=False)
+
+        date_cols = [d[5:] for d in all_dates]
+
+        def color_slot(val):
+            if val == "— Banc":
+                return "color: #8b949e"
+            return "color: #3fb950; font-weight: 600"
+
+        def color_score(val):
+            if pd.isna(val):
+                return "color: #8b949e"
+            if val >= 20:
+                return "background-color: #1a7f37; color: white"
+            if val >= 10:
+                return "background-color: #196c2e; color: #7ee787"
+            if val > 0:
+                return "color: #7ee787"
+            if val < 0:
+                return "background-color: #6e1c1c; color: #ff7b72"
+            return "color: #8b949e"
+
+        styled = (
+            df_recap.style
+            .format("{:.1f}", subset=["Total GW"] + date_cols, na_rep="—")
+            .applymap(color_score, subset=date_cols)
+            .applymap(color_slot, subset=["Slot So7"])
+        )
+        st.dataframe(styled, use_container_width=True, hide_index=True)
+
+        # ── Bench ──────────────────────────────────────────────────────────────
+        if bench:
+            with st.expander(f"🪑 Banc ({len(bench)} joueur(s) non sélectionnés)"):
+                for p in bench:
+                    reason = ""
+                    eligible = p["eligible_slots"]
+                    # Chercher quel slot ils auraient pu occuper
+                    blocked = [s for s in eligible if s in lineup and lineup[s]["total_gw"] >= p["total_gw"]]
+                    if blocked:
+                        reason = f"→ Score inférieur au titulaire en {', '.join(so7_engine.SLOT_LABELS[s] for s in blocked)}"
+                    st.markdown(
+                        f"**{p['name']}** `{p['position']}` — **{p['total_gw']:+.1f} pts** "
+                        f"({p['games_played']} matchs)  {reason}"
+                    )
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 4 — Synchronisation manuelle avancée
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_sync:
     st.subheader("🔄 Synchronisation manuelle")
