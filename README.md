@@ -64,38 +64,28 @@ docker compose up -d --build
 ### Hitters
 | Action | Points |
 |---|---|
-| Single | +3.0 |
-| Double | +5.0 |
-| Triple | +8.0 |
-| Home Run | +10.0 |
-| RBI | +3.5 |
-| Run | +3.0 |
-| Stolen Base | +5.0 |
-| Walk / HBP | +2.0 |
-| Caught Stealing | -2.0 |
-| Strikeout | -1.5 |
-| Sacrifice Fly | +1.0 |
-| Bonus 2H | +1.0 |
-| Bonus 3H | +2.0 |
-| Bonus 4H+ | +3.0 |
+| Single | +2 |
+| Double | +5 |
+| Triple | +8 |
+| Home Run | +10 |
+| RBI | +3 |
+| Run | +3 |
+| Stolen Base | +5 |
+| Walk / HBP | +2 |
+| Strikeout | -1 |
 
 ### Pitchers
 | Action | Points |
 |---|---|
-| Inning Pitched | +2.25 |
-| Strikeout | +3.0 |
-| Walk | -2.0 |
-| Hit Allowed | -0.6 |
-| Earned Run | -3.0 |
-| HR Allowed | -3.0 |
-| Win | +5.0 |
-| Loss | -5.0 |
-| Save | +7.0 |
-| Hold | +4.0 |
-| Blown Save | -4.0 |
-| Complete Game | +5.0 |
-| Shutout | +5.0 |
-| No-Hitter | +15.0 |
+| Inning Pitched | +3 |
+| Strikeout | +2 |
+| Walk | -1 |
+| Hit Allowed | -0.5 |
+| Earned Run | -2 |
+| Hit Batsman | -1 |
+| Win | +5 |
+| Save | +10 |
+| Hold | +5 |
 
 ---
 
