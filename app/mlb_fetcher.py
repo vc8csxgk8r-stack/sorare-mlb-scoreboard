@@ -115,6 +115,7 @@ def get_player_stats_for_date(player_id: int, date: datetime.date) -> dict | Non
                     "complete_game": 1 if raw.get("completeGames", 0) >= 1 else 0,
                     "shutout": 1 if raw.get("shutouts", 0) >= 1 else 0,
                     "no_hitter": 0,  # non dispo dans box score simple
+                    "hit_batsmen": raw.get("hitBatsmen", 0),  # ✅ ajouté
                     # Batting aussi si two-way
                     "at_bats": 0, "hits": 0, "singles": 0, "doubles": 0,
                     "triples": 0, "home_runs": 0, "rbi": 0, "runs": 0,

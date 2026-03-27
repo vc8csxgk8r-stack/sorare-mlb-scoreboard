@@ -1,51 +1,72 @@
 """
 sorare_scoring.py
 Barême officiel Sorare MLB (hitters + pitchers).
-Source : https://sorare.com/mlb/rules  (grille 2024-2025)
+Source vérifiée : sorarescout.com/mlb + sorare.com/help (2022-2025, inchangé)
+
+HITTERS
+  Run (R)           +3
+  RBI               +3
+  Single (1B)       +2
+  Double (2B)       +5
+  Triple (3B)       +8
+  Home Run (HR)    +10
+  Walk (BB)         +2
+  Strikeout (K)     -1
+  Stolen Base (SB)  +5
+  Hit By Pitch(HBP) +2
+
+PITCHERS
+  Inning Pitched   +3     (par manche complète ou fraction)
+  Strikeout (K)    +2
+  Hit Allowed (H)  -0.5
+  Earned Run (ER)  -2
+  Walk (BB)        -1
+  Hit Batsman(HBP) -1
+  Win (W)          +5
+  Save (S)         +10
+  Hold (HLD)       +5
 """
 
 # ─── HITTERS ──────────────────────────────────────────────────────────────────
 HITTER_WEIGHTS = {
-    # Offensif
-    "single":          3.0,
+    "single":          2.0,    # ✅ officiel +2 (était +3 — CORRIGÉ)
     "double":          5.0,
     "triple":          8.0,
     "home_run":       10.0,
-    "rbi":             3.5,
+    "rbi":             3.0,    # ✅ officiel +3 (était +3.5 — CORRIGÉ)
     "run":             3.0,
     "stolen_base":     5.0,
-    "caught_stealing": -2.0,
     "walk":            2.0,
     "hit_by_pitch":    2.0,
-    # Négatif
-    "strikeout":      -1.5,
-    "sacrifice_fly":   1.0,
+    "strikeout":      -1.0,    # ✅ officiel -1 (était -1.5 — CORRIGÉ)
+    # Caught stealing et sacrifice fly ne figurent pas dans le barême officiel publié
+    "caught_stealing": 0.0,
+    "sacrifice_fly":   0.0,
 }
 
-# Bonus "hit" par tranche (optionnel Sorare — vérifiable in-app)
-# 2H : +1, 3H: +2, 4H+: +3
-HITTER_HIT_BONUS = {2: 1.0, 3: 2.0, 4: 3.0}
+# Pas de bonus hits dans le barême officiel publié — désactivé
+HITTER_HIT_BONUS = {}
 
 # ─── PITCHERS ─────────────────────────────────────────────────────────────────
 PITCHER_WEIGHTS = {
-    "inning_pitched":   2.25,   # par manche (fraction autorisée)
-    "strikeout":        3.0,
-    "walk":            -2.0,
-    "hit_allowed":     -0.6,
-    "earned_run":      -3.0,
-    "home_run_allowed":-3.0,
+    "inning_pitched":   3.0,    # ✅ officiel +3/IP (était +2.25 — CORRIGÉ)
+    "strikeout":        2.0,    # ✅ officiel +2 (était +3 — CORRIGÉ)
+    "walk":            -1.0,    # ✅ officiel -1 (était -2 — CORRIGÉ)
+    "hit_allowed":     -0.5,    # ✅ officiel -0.5 (était -0.6 — CORRIGÉ)
+    "earned_run":      -2.0,    # ✅ officiel -2 (était -3 — CORRIGÉ)
+    "home_run_allowed": 0.0,    # non listé séparément dans le barême officiel
+    "hit_batsman":     -1.0,    # ✅ officiel -1 (manquait — AJOUTÉ)
     # Bonus résultat
     "win":              5.0,
-    "loss":            -5.0,
-    "save":             7.0,
-    "hold":             4.0,
-    "blown_save":      -4.0,
-    # Bonus performance
-    "complete_game":    5.0,
-    "shutout":          5.0,    # s'additionne à complete_game
-    "no_hitter":       15.0,    # s'additionne à shutout + complete_game
+    "loss":             0.0,    # non listé dans le barême officiel
+    "save":            10.0,    # ✅ officiel +10 (était +7 — CORRIGÉ)
+    "hold":             5.0,    # ✅ officiel +5 (était +4 — CORRIGÉ)
+    "blown_save":       0.0,    # non listé dans le barême officiel
+    # Bonus performance — non listés officiellement, désactivés
+    "complete_game":    0.0,
+    "shutout":          0.0,
+    "no_hitter":        0.0,
 }
-
 
 # ─── Calcul ───────────────────────────────────────────────────────────────────
 def compute_score(stats: dict) -> dict:
@@ -66,30 +87,20 @@ def _score_hitter(s: dict) -> dict:
     w = HITTER_WEIGHTS
     breakdown = {}
 
-    def add(key, value, label=None):
+    def add(label, value):
         if value != 0:
-            breakdown[label or key] = round(value, 2)
+            breakdown[label] = round(value, 2)
 
-    add("single",          s.get("singles", 0)           * w["single"],      "Singles")
-    add("double",          s.get("doubles", 0)           * w["double"],      "Doubles")
-    add("triple",          s.get("triples", 0)           * w["triple"],      "Triples")
-    add("home_run",        s.get("home_runs", 0)         * w["home_run"],    "Home Runs")
-    add("rbi",             s.get("rbi", 0)               * w["rbi"],         "RBI")
-    add("run",             s.get("runs", 0)              * w["run"],         "Runs")
-    add("stolen_base",     s.get("stolen_bases", 0)      * w["stolen_base"], "Stolen Bases")
-    add("caught_stealing", s.get("caught_stealing", 0)   * w["caught_stealing"], "Caught Stealing")
-    add("walk",            s.get("walks_bat", 0)         * w["walk"],        "Walks")
-    add("hit_by_pitch",    s.get("hit_by_pitch", 0)      * w["hit_by_pitch"],"Hit By Pitch")
-    add("strikeout",       s.get("strikeouts_bat", 0)    * w["strikeout"],   "Strikeouts (K)")
-    add("sacrifice_fly",   s.get("sacrifice_fly", 0)     * w["sacrifice_fly"],"Sacrifice Fly")
-
-    # Bonus hits
-    total_hits = s.get("hits", 0)
-    for threshold in sorted(HITTER_HIT_BONUS.keys(), reverse=True):
-        if total_hits >= threshold:
-            bonus = HITTER_HIT_BONUS[threshold]
-            breakdown[f"Hit Bonus ({threshold}H)"] = bonus
-            break
+    add("Singles",        s.get("singles", 0)        * w["single"])
+    add("Doubles",        s.get("doubles", 0)        * w["double"])
+    add("Triples",        s.get("triples", 0)        * w["triple"])
+    add("Home Runs",      s.get("home_runs", 0)      * w["home_run"])
+    add("RBI",            s.get("rbi", 0)            * w["rbi"])
+    add("Runs",           s.get("runs", 0)           * w["run"])
+    add("Stolen Bases",   s.get("stolen_bases", 0)   * w["stolen_base"])
+    add("Walks (BB)",     s.get("walks_bat", 0)      * w["walk"])
+    add("Hit By Pitch",   s.get("hit_by_pitch", 0)   * w["hit_by_pitch"])
+    add("Strikeouts (K)", s.get("strikeouts_bat", 0) * w["strikeout"])
 
     total = round(sum(breakdown.values()), 2)
     return {"breakdown": breakdown, "total": total}
@@ -99,25 +110,20 @@ def _score_pitcher(s: dict) -> dict:
     w = PITCHER_WEIGHTS
     breakdown = {}
 
-    def add(key, value, label=None):
+    def add(label, value):
         if value != 0:
-            breakdown[label or key] = round(value, 2)
+            breakdown[label] = round(value, 2)
 
     ip = s.get("innings_pitched", 0.0)
-    add("ip",   ip                               * w["inning_pitched"],   f"IP ({ip:.2f})")
-    add("k",    s.get("strikeouts", 0)           * w["strikeout"],        "Strikeouts (K)")
-    add("bb",   s.get("walks", 0)                * w["walk"],             "Walks (BB)")
-    add("h",    s.get("hits_allowed", 0)         * w["hit_allowed"],      "Hits Allowed")
-    add("er",   s.get("earned_runs", 0)          * w["earned_run"],       "Earned Runs")
-    add("hr",   s.get("home_runs_allowed", 0)    * w["home_run_allowed"], "HR Allowed")
-    add("win",  s.get("wins", 0)                 * w["win"],              "Win")
-    add("loss", s.get("losses", 0)               * w["loss"],             "Loss")
-    add("sv",   s.get("saves", 0)                * w["save"],             "Save")
-    add("hld",  s.get("holds", 0)                * w["hold"],             "Hold")
-    add("bsv",  s.get("blown_saves", 0)          * w["blown_save"],       "Blown Save")
-    add("cg",   s.get("complete_game", 0)        * w["complete_game"],    "Complete Game")
-    add("sho",  s.get("shutout", 0)              * w["shutout"],          "Shutout")
-    add("nh",   s.get("no_hitter", 0)            * w["no_hitter"],        "No-Hitter")
+    add(f"IP ({ip:.2f})",    ip                            * w["inning_pitched"])
+    add("Strikeouts (K)",    s.get("strikeouts", 0)        * w["strikeout"])
+    add("Walks (BB)",        s.get("walks", 0)             * w["walk"])
+    add("Hits Allowed",      s.get("hits_allowed", 0)      * w["hit_allowed"])
+    add("Earned Runs",       s.get("earned_runs", 0)       * w["earned_run"])
+    add("Hit Batsmen (HBP)", s.get("hit_batsmen", 0)       * w["hit_batsman"])
+    add("Win",               s.get("wins", 0)              * w["win"])
+    add("Save",              s.get("saves", 0)             * w["save"])
+    add("Hold",              s.get("holds", 0)             * w["hold"])
 
     total = round(sum(breakdown.values()), 2)
     return {"breakdown": breakdown, "total": total}
