@@ -252,11 +252,29 @@ with tab_history:
                 pivot["MOY"]   = pivot.drop(columns=["TOTAL"]).mean(axis=1, skipna=True).round(1)
                 pivot = pivot.sort_values("TOTAL", ascending=False)
 
-                st.dataframe(
-                    pivot.style.format("{:.1f}", na_rep="DNS")
-                               .background_gradient(cmap="RdYlGn", subset=pd.IndexSlice[:, pivot.columns[:-2]]),
-                    use_container_width=True,
+                # Coloration manuelle sans matplotlib
+                date_cols = [c for c in pivot.columns if c not in ("TOTAL", "MOY")]
+
+                def color_score(val):
+                    if pd.isna(val):
+                        return "color: #8b949e"
+                    if val > 30:
+                        return "background-color: #1a7f37; color: white"
+                    if val > 15:
+                        return "background-color: #2ea043; color: white"
+                    if val > 0:
+                        return "background-color: #196c2e; color: #7ee787"
+                    if val < 0:
+                        return "background-color: #6e1c1c; color: #ff7b72"
+                    return "color: #8b949e"
+
+                styled = (
+                    pivot.style
+                    .format("{:.1f}", na_rep="DNS")
+                    .applymap(color_score, subset=pd.IndexSlice[:, date_cols])
+                    .format("{:.1f}", subset=["TOTAL", "MOY"])
                 )
+                st.dataframe(styled, use_container_width=True)
 
                 # Graphe par joueur
                 st.markdown("---")
