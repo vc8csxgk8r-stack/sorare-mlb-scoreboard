@@ -14,7 +14,7 @@ st.title("📊 Sorare MLB - Scores recalculés (sans login)")
 DB_PATH = "/app/data/scores.db"
 ROSTER_PATH = "/app/data/roster.json"
 
-# ===================== INIT DB & ROSTER =====================
+# ===================== INIT =====================
 def init_db():
     os.makedirs("/app/data", exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
@@ -43,24 +43,24 @@ def get_last_snapshot():
         return json.loads(df['data'].iloc[0]), df['date'].iloc[0]
     return None, None
 
-# ===================== SCORING SORARE MLB OFFICIEL =====================
+# ===================== SCORING SORARE =====================
 def calculate_sorare_score(stats, player_type="hitter"):
     if player_type == "hitter":
         singles = stats.get('hits', 0) - stats.get('doubles', 0) - stats.get('triples', 0) - stats.get('homeRuns', 0)
         score = (
-            stats.get('runs', 0) * 3 +           # R
-            stats.get('rbi', 0) * 3 +            # RBI
-            singles * 2 +                        # 1B
-            stats.get('doubles', 0) * 5 +        # 2B
-            stats.get('triples', 0) * 8 +        # 3B
-            stats.get('homeRuns', 0) * 10 +      # HR
-            stats.get('baseOnBalls', 0) * 2 +    # BB
-            stats.get('hitByPitch', 0) * 2 +     # HBP
-            stats.get('stolenBases', 0) * 5 +    # SB
-            stats.get('strikeOuts', 0) * (-1)    # K
+            stats.get('runs', 0) * 3 +
+            stats.get('rbi', 0) * 3 +
+            singles * 2 +
+            stats.get('doubles', 0) * 5 +
+            stats.get('triples', 0) * 8 +
+            stats.get('homeRuns', 0) * 10 +
+            stats.get('baseOnBalls', 0) * 2 +
+            stats.get('hitByPitch', 0) * 2 +
+            stats.get('stolenBases', 0) * 5 +
+            stats.get('strikeOuts', 0) * (-1)
         )
         return round(score, 1)
-    else:  # pitcher
+    else:
         score = (
             stats.get('inningsPitched', 0) * 3 +
             stats.get('strikeOuts', 0) * 2 +
@@ -69,19 +69,19 @@ def calculate_sorare_score(stats, player_type="hitter"):
             stats.get('holds', 0) * 5 +
             stats.get('earnedRuns', 0) * (-2) +
             stats.get('baseOnBalls', 0) * (-1) +
-            stats.get('hits', 0) * (-0.5) +
-            stats.get('hitByPitch', 0) * (-1)
+            stats.get('hits', 0) * (-0.5)
         )
         return round(score, 1)
 
-# ===================== SYNCHRO =====================
+# ===================== SYNCHRO AMÉLIORÉE =====================
 def perform_sync():
-    with st.spinner("🔄 Récupération des stats MLB et calcul des scores..."):
+    with st.spinner("🔄 Calcul des scores de la soirée d'hier..."):
         roster = load_roster()
         if not roster:
-            st.warning("Aucun joueur dans ton roster. Ajoute-en dans la sidebar.")
+            st.warning("Aucun joueur dans le roster.")
             return
 
+        # On calcule jusqu'à hier inclus
         yesterday = (date.today() - timedelta(days=1)).isoformat()
         start_period = (date.today() - timedelta(days=10)).isoformat()
         season = str(date.today().year)
@@ -92,14 +92,12 @@ def perform_sync():
                 player_id = player.get("mlb_id")
                 if not player_id:
                     lookup = statsapi.lookup_player(player["name"])
-                    if lookup:
-                        player_id = lookup[0]["id"]
+                    player_id = lookup[0]["id"] if lookup else None
 
                 if not player_id:
                     results.append({"player": player["name"], "score_cumule": 0, "type": player["type"], "matches": 0})
                     continue
 
-                # Récupération des game logs
                 data = statsapi.get('people', {
                     'personId': player_id,
                     'hydrate': f'stats(group={player["type"]},type=gameLog,season={season})'
@@ -128,17 +126,17 @@ def perform_sync():
             except Exception:
                 results.append({"player": player["name"], "score_cumule": 0, "type": player["type"], "matches": 0})
 
-        # Sauvegarde
+        # Sauvegarde avec la date d'hier
         conn = sqlite3.connect(DB_PATH)
         conn.execute("INSERT OR REPLACE INTO daily_scores (date, data) VALUES (?, ?)",
                      (yesterday, json.dumps(results)))
         conn.commit()
         conn.close()
 
-        st.success(f"✅ Synchro terminée ! Snapshot du {yesterday} sauvegardé.")
+        st.success(f"✅ Scores de la soirée du {yesterday} calculés et sauvegardés !")
         st.rerun()
 
-# ===================== SCHEDULER =====================
+# Scheduler (quotidien + toutes les 10 min les jours de matchs)
 scheduler = BackgroundScheduler()
 scheduler.add_job(perform_sync, 'cron', hour=7, minute=0)
 
@@ -146,41 +144,31 @@ def check_game_day():
     try:
         today = date.today().isoformat()
         if statsapi.schedule(start_date=today, end_date=today):
-            scheduler.add_job(perform_sync, 'interval', minutes=10, id='live_sync', replace_existing=True)
-            st.toast("⚾ Jour de matchs MLB détecté → synchro toutes les 10 minutes activée", icon="⚾")
+            scheduler.add_job(perform_sync, 'interval', minutes=10, id='live', replace_existing=True)
     except:
         pass
 
 scheduler.add_job(check_game_day, 'cron', hour=9, minute=0)
 scheduler.start()
 
-# ===================== INTERFACE =====================
+# ===================== UI =====================
 st.sidebar.header("📋 Mon roster Sorare MLB")
 roster = load_roster()
 
-with st.sidebar.expander("➕ Ajouter un joueur"):
-    name = st.text_input("Nom du joueur (ex: Aaron Judge)")
-    mlb_id = st.number_input("MLB ID (optionnel mais recommandé)", value=0, step=1)
-    ptype = st.selectbox("Type de joueur", ["hitter", "pitcher"])
-    if st.button("Ajouter au roster"):
-        if name:
-            roster.append({"name": name.strip(), "mlb_id": int(mlb_id) if mlb_id else None, "type": ptype})
-            save_roster(roster)
-            st.rerun()
-
+# Affichage roster dans sidebar
 if roster:
     st.sidebar.dataframe(pd.DataFrame(roster)[["name", "type"]], hide_index=True)
 
 col1, col2 = st.columns([3,1])
 with col2:
-    if st.button("🔄 Lancer une synchro manuelle maintenant", type="primary", use_container_width=True):
+    if st.button("🔄 Calculer les scores de la soirée d'hier", type="primary", use_container_width=True):
         perform_sync()
 
 last_snapshot, snapshot_date = get_last_snapshot()
 
 if last_snapshot:
     df = pd.DataFrame(last_snapshot)
-    st.subheader(f"📅 Scores cumulés de la gameweek (snapshot du {snapshot_date})")
+    st.subheader(f"📅 Scores calculés jusqu'au {snapshot_date} (soirée d'hier)")
     st.dataframe(
         df.sort_values("score_cumule", ascending=False)[["player", "type", "score_cumule", "matches"]],
         use_container_width=True,
@@ -188,6 +176,6 @@ if last_snapshot:
     )
     st.metric("Total équipe", f"{df['score_cumule'].sum():.1f} pts")
 else:
-    st.info("Aucun snapshot disponible pour l’instant. Ajoute tes joueurs puis lance une synchro.")
+    st.info("Aucun snapshot. Clique sur le bouton ci-dessus pour calculer les scores d'hier.")
 
-st.caption("Données officielles MLB • Scoring Sorare officiel • Snapshot stable du jour d’avant • Synchro auto 10 min les jours de matchs")
+st.caption("• Scores Sorare officiels recalculés • Mise à jour jusqu'aux matchs d'hier • Synchro auto activée les jours de matchs")
