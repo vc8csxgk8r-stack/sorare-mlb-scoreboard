@@ -1,611 +1,725 @@
 """
 main.py  –  Sorare MLB Scoreboard
-Dashboard Streamlit : scores Sorare calculés depuis l'API officielle MLB.
+Timezone : Europe/Paris
 """
 
 import streamlit as st
 import datetime
 import pandas as pd
 import logging
+import zoneinfo
 
 import db
 import sync
-from mlb_fetcher import search_player
+import gameweek as gw_module
+import iopp as iopp_module
 import so7 as so7_engine
+from mlb_fetcher import search_player, get_player_headshot_url
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-)
+TZ = zoneinfo.ZoneInfo("Europe/Paris")
 
-# ─── Config page ──────────────────────────────────────────────────────────────
-st.set_page_config(
-    page_title="Sorare MLB Scoreboard",
-    page_icon="⚾",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
-# ─── Init ─────────────────────────────────────────────────────────────────────
+st.set_page_config(page_title="Sorare MLB Scoreboard", page_icon="⚾",
+                   layout="wide", initial_sidebar_state="expanded")
 db.init_db()
 sync.start_scheduler()
+
+def _today() -> datetime.date:
+    return datetime.datetime.now(tz=TZ).date()
 
 # ─── CSS ──────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-[data-testid="stSidebar"] { background: #0d1117; }
-.score-card {
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 8px;
-    padding: 12px 16px;
-    margin-bottom: 8px;
+[data-testid="stSidebar"] { background:#0d1117; }
+
+.gw-banner {
+    background:linear-gradient(135deg,#161b22 0%,#1c2128 100%);
+    border:1px solid #30363d; border-radius:12px;
+    padding:14px 20px; margin-bottom:16px;
+    display:flex; align-items:center; gap:20px; flex-wrap:wrap;
 }
-.score-big { font-size: 2rem; font-weight: 700; }
-.score-pos { color: #3fb950; }
-.score-neg { color: #f85149; }
-.score-zero { color: #8b949e; }
-.badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 600;
+.gw-title       { font-size:1rem; font-weight:700; color:#e6edf3; }
+.gw-dates       { font-size:.8rem; color:#8b949e; }
+.gw-days        { font-size:.75rem; background:#21262d; color:#79c0ff;
+                  border-radius:6px; padding:2px 8px; font-weight:700; }
+.gw-score       { font-size:1.4rem; font-weight:800; color:#3fb950; }
+.gw-score-label { font-size:.65rem; color:#8b949e; text-transform:uppercase; letter-spacing:.05em; }
+
+.player-card {
+    background:linear-gradient(180deg,#1c2128 0%,#161b22 100%);
+    border:2px solid #30363d; border-radius:14px;
+    overflow:hidden; text-align:center;
+    transition:border-color .2s, transform .15s;
 }
-.badge-hitter { background: #1f6feb; color: #fff; }
-.badge-pitcher { background: #388bfd22; color: #388bfd; border: 1px solid #388bfd; }
+.player-card:hover { border-color:#388bfd; transform:translateY(-3px); }
+.player-card.rank-1 { border-color:#f1c40f; box-shadow:0 0 14px #f1c40f44; }
+.player-card.rank-2 { border-color:#95a5a6; box-shadow:0 0 10px #95a5a644; }
+.player-card.rank-3 { border-color:#cd7f32; box-shadow:0 0 10px #cd7f3244; }
+
+.card-header { background:linear-gradient(135deg,#0d1117,#21262d);
+    padding:4px 8px; display:flex; justify-content:space-between; align-items:center; }
+.card-pos  { font-size:.68rem; font-weight:700; color:#8b949e; letter-spacing:.06em; }
+.card-rank { font-size:.75rem; font-weight:800; color:#f1c40f; }
+.card-img-wrapper {
+    background:linear-gradient(180deg,#21262d 0%,#161b22 100%);
+    padding:8px 4px 0; min-height:110px;
+    display:flex; align-items:flex-end; justify-content:center;
+}
+.card-img-wrapper img {
+    width:100%; max-width:110px; height:100px;
+    object-fit:cover; object-position:top;
+    border-radius:6px 6px 0 0; display:block; margin:0 auto;
+}
+.card-name  { font-size:.78rem; font-weight:700; color:#e6edf3;
+    padding:5px 6px 1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.card-team  { font-size:.65rem; color:#8b949e; padding:0 6px 3px; }
+.card-score-strip { background:#0d1117; border-top:1px solid #30363d; padding:5px 4px; }
+.card-score-main  { font-size:1.25rem; font-weight:800; line-height:1; }
+.card-score-gw    { font-size:.7rem; color:#79c0ff; font-weight:700; padding-top:1px; }
+.card-score-dns   { font-size:.8rem; color:#8b949e; padding:3px 0; }
+
+.day-pills { display:flex; justify-content:center; gap:2px; flex-wrap:wrap; padding:3px 4px 5px; }
+.day-pill  { font-size:.55rem; font-weight:700; padding:1px 3px;
+             border-radius:4px; white-space:nowrap; line-height:1.4; }
+.pill-pos  { background:#196c2e; color:#7ee787; }
+.pill-neg  { background:#6e1c1c; color:#ff7b72; }
+.pill-zero { background:#21262d; color:#8b949e; }
+
+.iopp-card { background:#161b22; border:1px solid #30363d; border-radius:10px;
+    padding:12px 16px; margin-bottom:8px; }
+.iopp-bar-bg   { background:#21262d; border-radius:4px; height:8px; margin:6px 0; overflow:hidden; }
+.iopp-bar-fill { height:100%; border-radius:4px; }
+
+.badge { display:inline-block; padding:1px 7px; border-radius:10px;
+         font-size:.65rem; font-weight:700; }
+.badge-hitter  { background:#1f6feb; color:#fff; }
+.badge-pitcher { background:#21262d; color:#388bfd; border:1px solid #388bfd; }
+.score-pos { color:#3fb950; }
+.score-neg { color:#f85149; }
+
+.so7-slot { background:linear-gradient(135deg,#161b22,#1c2128);
+    border:1px solid #30363d; border-radius:10px; padding:12px 16px; margin-bottom:10px; }
+.so7-slot-label { font-size:.7rem; font-weight:700; letter-spacing:.08em;
+    color:#8b949e; text-transform:uppercase; margin-bottom:2px; }
+.so7-player-name { font-size:1.05rem; font-weight:700; color:#e6edf3; }
+.so7-player-sub  { font-size:.8rem; color:#8b949e; }
+.so7-score     { font-size:1.5rem; font-weight:800; }
+.so7-score-pos { color:#3fb950; }
+.so7-score-neg { color:#f85149; }
+.slot-sp  {border-left:3px solid #388bfd;} .slot-rp  {border-left:3px solid #79c0ff;}
+.slot-cmi {border-left:3px solid #d2a8ff;} .slot-ci  {border-left:3px solid #f0883e;}
+.slot-of  {border-left:3px solid #3fb950;} .slot-xh  {border-left:3px solid #ffa657;}
+.slot-flex{border-left:3px solid #ff7b72;}
 </style>
 """, unsafe_allow_html=True)
 
-# ─── Sidebar : Gestion du Roster ──────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# SIDEBAR
+# ══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
     st.title("⚾ Sorare MLB")
+    cur_gw = gw_module.current_gw()
+    st.markdown(f"""
+<div style='background:#161b22;border:1px solid #30363d;border-radius:8px;
+     padding:10px 14px;margin-bottom:10px;'>
+  <div style='font-size:.65rem;color:#8b949e;text-transform:uppercase;letter-spacing:.05em;'>
+    GW EN COURS</div>
+  <div style='font-size:.85rem;font-weight:700;color:#e6edf3;margin:2px 0;'>
+    {cur_gw['label']}</div>
+  <div style='font-size:.7rem;color:#79c0ff;'>
+    ⏱ {cur_gw['days_left']} jour(s) restant(s)</div>
+</div>""", unsafe_allow_html=True)
+
     st.markdown("---")
     st.subheader("👥 Mon Roster")
-
-    roster = db.get_roster()
-    if roster:
-        for p in roster:
-            col1, col2 = st.columns([3, 1])
-            role_icon = "🥎" if p["role"] == "pitcher" else "🏏"
-            col1.markdown(f"{role_icon} **{p['name']}** `{p['position']}`")
-            if col2.button("✕", key=f"rm_{p['player_id']}", help="Retirer du roster"):
-                db.remove_player(p["player_id"])
-                st.rerun()
+    roster_sb = db.get_roster()
+    if roster_sb:
+        for p in roster_sb:
+            c1,c2 = st.columns([3,1])
+            c1.markdown(f"{'🥎' if p['role']=='pitcher' else '🏏'} **{p['name']}** `{p['position']}`")
+            if c2.button("✕", key=f"rm_{p['player_id']}"):
+                db.remove_player(p["player_id"]); st.rerun()
     else:
-        st.info("Roster vide. Ajoute des joueurs ci-dessous.")
+        st.info("Roster vide.")
 
     st.markdown("---")
     st.subheader("➕ Ajouter un joueur")
-
-    search_query = st.text_input("Nom du joueur", placeholder="ex: Shohei Ohtani")
-    if search_query and len(search_query) >= 3:
+    q = st.text_input("Nom", placeholder="ex: Shohei Ohtani")
+    if q and len(q) >= 3:
         with st.spinner("Recherche…"):
             try:
-                results = search_player(search_query)
-                if results:
-                    for r in results[:5]:
-                        c1, c2 = st.columns([3, 1])
-                        c1.markdown(f"**{r['name']}** — {r['team']} `{r['position']}`")
-                        role_guess = "pitcher" if r["position"] in ("SP", "RP", "P", "CL") else "hitter"
-                        if c2.button("＋", key=f"add_{r['id']}"):
-                            db.add_player(r["id"], r["name"], r["team"], r["position"], role_guess)
-                            st.success(f"{r['name']} ajouté !")
-                            st.rerun()
-                else:
-                    st.warning("Aucun joueur trouvé.")
+                res = search_player(q)
+                for r in res[:5]:
+                    c1,c2 = st.columns([3,1])
+                    c1.markdown(f"**{r['name']}** — {r['team']} `{r['position']}`")
+                    rg = "pitcher" if r["position"] in ("SP","RP","P","CL") else "hitter"
+                    if c2.button("＋", key=f"add_{r['id']}"):
+                        db.add_player(r["id"],r["name"],r["team"],r["position"],rg)
+                        st.success(f"{r['name']} ajouté !"); st.rerun()
+                if not res: st.warning("Aucun joueur trouvé.")
             except Exception as e:
-                st.error(f"Erreur recherche : {e}")
+                st.error(str(e))
 
     st.markdown("---")
-    st.caption("🔄 Synchro auto toutes les 15 min (13h–04h UTC)")
-
-# ─── Tabs principaux ──────────────────────────────────────────────────────────
-tab_scores, tab_history, tab_so7, tab_sync = st.tabs(["📊 Scores du jour", "📅 Historique", "🏆 Best So7", "🔄 Synchronisation"])
+    st.caption("🔄 Synchro auto toutes les heures · 🕐 Europe/Paris")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TAB 1 — Scores du jour (ou date choisie)
+# TABS
+# ══════════════════════════════════════════════════════════════════════════════
+tab_scores, tab_history, tab_iopp, tab_so7, tab_sync = st.tabs(
+    ["📊 Scores du jour", "📅 Historique", "📈 IOPP", "🏆 Best So7", "🔄 Synchronisation"]
+)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 1 — Scores du jour
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_scores:
-    col_date, col_btn = st.columns([3, 1])
+    today = _today()
+    cur_gw    = gw_module.current_gw()
+    gw_start  = datetime.date.fromisoformat(cur_gw["start_date"])
+    gw_end    = datetime.date.fromisoformat(cur_gw["end_date"])
 
-    # Dates disponibles
-    available_dates = db.get_all_dates_with_scores()
-    yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
+    col_date, col_btn = st.columns([3,1])
+    selected_date = col_date.date_input("Date (Europe/Paris)", value=today,
+                                        max_value=today, key="score_date")
+    date_str = selected_date.isoformat()
 
-    # Par défaut : hier (matchs terminés)
-    default_date = datetime.date.fromisoformat(yesterday) if yesterday in available_dates \
-                   else (datetime.date.fromisoformat(available_dates[0]) if available_dates
-                         else datetime.date.today() - datetime.timedelta(days=1))
-
-    selected_date = col_date.date_input(
-        "Date", value=default_date, max_value=datetime.date.today()
-    )
-
-    if col_btn.button("🔄 Synchro maintenant", use_container_width=True):
-        progress_bar = st.progress(0, text="Démarrage…")
-        status_text  = st.empty()
-
-        def progress_cb(current, total, msg):
-            if total > 0:
-                progress_bar.progress(current / total, text=msg)
-            status_text.text(msg)
-
-        sync.set_progress_callback(progress_cb)
-        result = sync.sync_date(selected_date, force=True)
-        progress_bar.empty()
-        status_text.empty()
-        sync.set_progress_callback(None)
-
-        synced = result.get("synced", 0)
-        errors = result.get("errors", 0)
-        no_game = result.get("no_game", 0)
-        if result.get("running"):
-            st.warning("⏳ Une synchro est déjà en cours.")
-        elif result.get("error_msg"):
-            st.error(f"❌ Erreur API MLB : {result['error_msg']}")
-        else:
-            st.success(f"✅ {synced} joueur(s) synchro | {no_game} pas joué | {errors} erreur(s)")
+    # Synchro silencieuse
+    if not db.is_date_synced(date_str) and db.get_roster():
+        with st.spinner(f"🔄 Synchro {date_str}…"):
+            sync.sync_date(selected_date, force=False)
         st.rerun()
+
+    if col_btn.button("🔄 Forcer synchro", use_container_width=True):
+        pb = st.progress(0, text="Démarrage…"); msg_ph = st.empty()
+        def _cb(c,t,tx):
+            if t>0: pb.progress(c/t, text=tx)
+            msg_ph.text(tx)
+        sync.set_progress_callback(_cb)
+        r = sync.sync_date(selected_date, force=True)
+        pb.empty(); msg_ph.empty(); sync.set_progress_callback(None)
+        if   r.get("running"):   st.warning("⏳ Synchro déjà en cours.")
+        elif r.get("error_msg"): st.error(f"❌ {r['error_msg']}")
+        else: st.success(f"✅ {r.get('synced',0)} | {r.get('no_game',0)} DNS | {r.get('errors',0)} err")
+        st.rerun()
+
+    # ── Banner GW en cours ─────────────────────────────────────────────────────
+    gw_days_done = max(0, (min(today, gw_end) - gw_start).days + 1)
+    days_total   = (gw_end - gw_start).days + 1
+    gw_total_by_player: dict[int, float] = {}
+    for p in db.get_roster():
+        pid = p["player_id"]
+        sc_list = db.get_scores_range(pid, cur_gw["start_date"],
+                                      min(today, gw_end).isoformat())
+        gw_total_by_player[pid] = sum(
+            s["total"] for s in sc_list if s.get("total") is not None)
+    gw_team_total = sum(gw_total_by_player.values())
+
+    st.markdown(f"""
+<div class="gw-banner">
+  <div>
+    <div class="gw-score-label">Gameweek en cours</div>
+    <div class="gw-title">{cur_gw['label']}</div>
+    <div class="gw-dates">{gw_start.strftime('%d/%m')} → {gw_end.strftime('%d/%m/%Y')}</div>
+  </div>
+  <div style="flex:1"></div>
+  <div style="text-align:right">
+    <div class="gw-score-label">Score GW équipe</div>
+    <div class="gw-score">{gw_team_total:+.1f} pts</div>
+    <div class="gw-days">J{gw_days_done}/{days_total} · {cur_gw['days_left']} restant(s)</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
     st.markdown("---")
 
-    # Affichage des scores
-    date_str = selected_date.isoformat()
+    # ── Scores ────────────────────────────────────────────────────────────────
     scores = db.get_scores_for_date(date_str)
-
     if not scores:
-        st.info(f"Aucune donnée pour le {date_str}. Lance une synchronisation →")
+        if not db.get_roster(): st.warning("Roster vide.")
+        else: st.info(f"Aucune donnée pour le {date_str}.")
     else:
-        # Résumé
-        valid = [s for s in scores if s["total"] is not None]
-        no_game_list = [s for s in scores if s["total"] is None]
+        valid    = [s for s in scores if s["total"] is not None]
+        no_games = [s for s in scores if s["total"] is None]
 
         if valid:
-            total_team = sum(s["total"] for s in valid)
-            avg = total_team / len(valid)
+            td = sum(s["total"] for s in valid)
             best = max(valid, key=lambda x: x["total"])
-
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("🏆 Score équipe", f"{total_team:.1f}")
-            m2.metric("📊 Moyenne", f"{avg:.1f}")
+            m1,m2,m3,m4 = st.columns(4)
+            m1.metric("🏆 Score du jour", f"{td:.1f}")
+            m2.metric("📊 Moy/joueur", f"{td/len(valid):.1f}")
             m3.metric("⭐ Meilleur", f"{best['player_name']} ({best['total']:.1f})")
-            m4.metric("👥 Joueurs actifs", len(valid))
+            m4.metric("👥 Actifs", f"{len(valid)}/{len(scores)}")
 
-            st.markdown("---")
+        st.markdown("---")
 
-        # Cards joueurs
-        for s in scores:
-            name    = s.get("player_name", "?")
-            pos     = s.get("position", "?")
-            role    = s.get("role", "hitter")
-            total   = s.get("total")
-            team    = s.get("team", "")
+        # Historique 7j
+        hist_start = (selected_date - datetime.timedelta(days=6)).isoformat()
+        all_hist = {s["player_id"]: db.get_scores_range(s["player_id"], hist_start, date_str)
+                    for s in scores}
 
-            badge_class = "badge-pitcher" if role == "pitcher" else "badge-hitter"
-            badge_label = "Pitcher" if role == "pitcher" else "Hitter"
+        sorted_scores = sorted(valid, key=lambda x: x["total"], reverse=True) + no_games
+        COLS = 5
+        for row in [sorted_scores[i:i+COLS] for i in range(0, len(sorted_scores), COLS)]:
+            cols = st.columns(COLS)
+            for col, s in zip(cols, row):
+                pid   = s["player_id"]
+                name  = s.get("player_name","?")
+                pos   = s.get("position","?")
+                team  = s.get("team","")
+                role  = s.get("role","hitter")
+                total = s.get("total")
+                rank  = sorted_scores.index(s)+1
 
-            if total is None:
-                score_html = '<span class="score-zero">— DNS</span>'
-                score_class = "score-zero"
-            else:
-                score_class = "score-pos" if total >= 0 else "score-neg"
-                score_html = f'<span class="score-big {score_class}">{total:+.1f}</span>'
+                rank_css,rank_lbl = "",""
+                if total is not None:
+                    if rank==1: rank_css,rank_lbl="rank-1","🥇"
+                    elif rank==2: rank_css,rank_lbl="rank-2","🥈"
+                    elif rank==3: rank_css,rank_lbl="rank-3","🥉"
 
-            with st.expander(f"{name}  |  {team}  `{pos}`  →  {total if total is not None else 'DNS'} pts"):
-                col_sc, col_bd = st.columns([1, 2])
-                col_sc.markdown(f"<div style='text-align:center'>{score_html}<br>"
-                                f"<span class='badge {badge_class}'>{badge_label}</span></div>",
-                                unsafe_allow_html=True)
-
-                breakdown = s.get("breakdown", {})
-                if breakdown:
-                    bd_df = pd.DataFrame(
-                        [{"Action": k, "Points": v} for k, v in breakdown.items()]
-                    ).sort_values("Points", ascending=False)
-                    col_bd.dataframe(bd_df, hide_index=True, use_container_width=True)
+                if total is None:
+                    score_html = '<div class="card-score-dns">— DNS</div>'
                 else:
-                    col_bd.info("Pas de match joué ce jour.")
+                    sc_c = "score-pos" if total>=0 else "score-neg"
+                    score_html = f'<div class="card-score-main {sc_c}">{total:+.1f}</div>'
 
-        # Joueurs sans données
-        if no_game_list:
-            st.markdown(f"*{len(no_game_list)} joueur(s) n'ont pas joué ce jour : "
-                        + ", ".join(s["player_name"] for s in no_game_list) + "*")
+                gw_val  = gw_total_by_player.get(pid,0.0)
+                gw_html = f'<div class="card-score-gw">GW : {gw_val:+.1f}</div>' if gw_val else ""
+
+                hist  = sorted(all_hist.get(pid,[]), key=lambda x: x["date"])
+                pills = ""
+                for h in hist:
+                    v = h.get("total"); lbl = h["date"][5:]
+                    if v is None:   pills += f'<span class="day-pill pill-zero">{lbl}</span>'
+                    elif v>=0:      pills += f'<span class="day-pill pill-pos">{lbl} {v:+.0f}</span>'
+                    else:           pills += f'<span class="day-pill pill-neg">{lbl} {v:+.0f}</span>'
+
+                img = get_player_headshot_url(pid)
+                bc  = "badge-pitcher" if role=="pitcher" else "badge-hitter"
+                bl  = "P" if role=="pitcher" else "H"
+
+                with col:
+                    st.markdown(f"""
+<div class="player-card {rank_css}">
+  <div class="card-header">
+    <span class="card-pos">{pos} <span class="badge {bc}">{bl}</span></span>
+    <span class="card-rank">{rank_lbl}</span>
+  </div>
+  <div class="card-img-wrapper">
+    <img src="{img}" alt="{name}"
+     onerror="this.src='https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/0/headshot/67/current'"/>
+  </div>
+  <div class="card-name" title="{name}">{name}</div>
+  <div class="card-team">{team}</div>
+  <div class="card-score-strip">{score_html}{gw_html}</div>
+  <div class="day-pills">{pills}</div>
+</div>""", unsafe_allow_html=True)
+                    bd = s.get("breakdown",{})
+                    if bd:
+                        with st.expander("Détail", expanded=False):
+                            st.dataframe(
+                                pd.DataFrame([{"Action":k,"Pts":v}
+                                              for k,v in bd.items()])
+                                  .sort_values("Pts",ascending=False),
+                                hide_index=True, use_container_width=True)
+
+        if no_games:
+            st.caption("⚫ DNS : "+" · ".join(s["player_name"] for s in no_games))
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TAB 2 — Historique multi-jours
+# TAB 2 — Historique
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_history:
     st.subheader("📅 Historique des scores")
-
     roster = db.get_roster()
     if not roster:
         st.info("Roster vide.")
     else:
-        available_dates = db.get_all_dates_with_scores()
-        if not available_dates:
-            st.info("Aucune donnée historique. Lance une synchronisation.")
+        avail = db.get_all_dates_with_scores()
+        if not avail:
+            st.info("Aucune donnée. Lance une synchronisation.")
         else:
-            # Sélection plage de dates
-            col_s, col_e = st.columns(2)
-            max_d = datetime.date.fromisoformat(available_dates[0])
-            min_d = datetime.date.fromisoformat(available_dates[-1])
-            start_d = col_s.date_input("Du", value=min_d, min_value=min_d, max_value=max_d, key="hist_start")
-            end_d   = col_e.date_input("Au", value=max_d, min_value=min_d, max_value=max_d, key="hist_end")
-
-            # Tableau pivotable
-            rows = []
-            for p in roster:
-                pid = p["player_id"]
-                scores_list = db.get_scores_range(pid, start_d.isoformat(), end_d.isoformat())
-                for sc in scores_list:
-                    rows.append({
-                        "Joueur": p["name"],
-                        "Date": sc["date"],
-                        "Rôle": sc.get("role", "?"),
-                        "Score": sc["total"],
-                    })
-
-            if rows:
-                df = pd.DataFrame(rows)
-                pivot = df.pivot_table(index="Joueur", columns="Date", values="Score", aggfunc="first")
-                pivot["TOTAL"] = pivot.sum(axis=1, skipna=True)
-                pivot["MOY"]   = pivot.drop(columns=["TOTAL"]).mean(axis=1, skipna=True).round(1)
-                pivot = pivot.sort_values("TOTAL", ascending=False)
-
-                # Coloration manuelle sans matplotlib
-                date_cols = [c for c in pivot.columns if c not in ("TOTAL", "MOY")]
-
-                def color_score(val):
-                    if pd.isna(val):
-                        return "color: #8b949e"
-                    if val > 30:
-                        return "background-color: #1a7f37; color: white"
-                    if val > 15:
-                        return "background-color: #2ea043; color: white"
-                    if val > 0:
-                        return "background-color: #196c2e; color: #7ee787"
-                    if val < 0:
-                        return "background-color: #6e1c1c; color: #ff7b72"
-                    return "color: #8b949e"
-
-                styled = (
-                    pivot.style
-                    .format("{:.1f}", na_rep="DNS")
-                    .applymap(color_score, subset=pd.IndexSlice[:, date_cols])
-                    .format("{:.1f}", subset=["TOTAL", "MOY"])
-                )
-                st.dataframe(styled, use_container_width=True)
-
-                # Graphe par joueur
-                st.markdown("---")
-                player_selected = st.selectbox("Zoom sur un joueur", options=df["Joueur"].unique())
-                df_p = df[df["Joueur"] == player_selected].set_index("Date")["Score"].dropna()
-                if not df_p.empty:
-                    st.bar_chart(df_p, use_container_width=True)
+            cur  = gw_module.current_gw()
+            prev = gw_module.previous_gw()
+            presets = {
+                f"GW en cours ({cur['label']})":    (cur["start_date"],  cur["end_date"]),
+                f"GW précédente ({prev['label']})": (prev["start_date"], prev["end_date"]),
+                "Personnalisé": None,
+            }
+            pk = st.selectbox("Période", list(presets.keys()))
+            pv = presets[pk]
+            if pv:
+                hs = datetime.date.fromisoformat(pv[0])
+                he = datetime.date.fromisoformat(pv[1])
+                st.info(f"📅 {hs} → {he}")
             else:
-                st.info("Aucun score dans cette plage de dates.")
+                max_d = datetime.date.fromisoformat(avail[0])
+                min_d = datetime.date.fromisoformat(avail[-1])
+                c1,c2 = st.columns(2)
+                hs = c1.date_input("Du", value=min_d, min_value=min_d, max_value=max_d, key="hs2")
+                he = c2.date_input("Au", value=max_d, min_value=min_d, max_value=max_d, key="he2")
+
+            rows_h = []
+            for p in roster:
+                for sc in db.get_scores_range(p["player_id"], hs.isoformat(), he.isoformat()):
+                    rows_h.append({"Joueur":p["name"],"Date":sc["date"],"Score":sc["total"]})
+
+            if rows_h:
+                df_h = pd.DataFrame(rows_h)
+                piv  = df_h.pivot_table(index="Joueur",columns="Date",values="Score",aggfunc="first")
+                piv["TOTAL"] = piv.sum(axis=1, skipna=True)
+                piv["MOY"]   = piv.drop(columns=["TOTAL"]).mean(axis=1, skipna=True).round(1)
+                piv = piv.sort_values("TOTAL", ascending=False)
+                dc  = [c for c in piv.columns if c not in ("TOTAL","MOY")]
+
+                def _cs(v):
+                    if pd.isna(v): return "color:#8b949e"
+                    if v>30: return "background-color:#1a7f37;color:white"
+                    if v>15: return "background-color:#196c2e;color:#7ee787"
+                    if v>0:  return "color:#7ee787"
+                    if v<0:  return "background-color:#6e1c1c;color:#ff7b72"
+                    return "color:#8b949e"
+
+                st.dataframe(
+                    piv.style.format("{:.1f}", na_rep="DNS")
+                              .applymap(_cs, subset=pd.IndexSlice[:, dc])
+                              .format("{:.1f}", subset=["TOTAL","MOY"]),
+                    use_container_width=True)
+
+                st.markdown("---")
+                sel = st.selectbox("Zoom joueur", df_h["Joueur"].unique())
+                df_z = df_h[df_h["Joueur"]==sel].set_index("Date")["Score"].dropna()
+                if not df_z.empty:
+                    st.bar_chart(df_z, use_container_width=True)
+            else:
+                st.info("Aucun score sur cette période.")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TAB 3 — Best So7 (Meilleure équipe sur une gameweek)
+# TAB 3 — IOPP
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_iopp:
+    st.subheader("📈 IOPP — Index de Performance des Joueurs")
+    st.caption(
+        "**L15 2026** = moyenne des 15 derniers matchs joués (saison en cours, scores Sorare). "
+        "**Moy 2025** = score Sorare moyen recalculé depuis les stats officielles MLB 2025. "
+        "Seuil ±15% → Surperformance 🔥 / Sous-performance ❄️"
+    )
+
+    roster = db.get_roster()
+    if not roster:
+        st.warning("Roster vide.")
+    else:
+        if st.button("🔄 Calculer / Rafraîchir l'IOPP", type="primary"):
+            with st.spinner("Calcul IOPP (appels API MLB 2025)…"):
+                ioppd = iopp_module.compute_roster_iopp(roster)
+            st.session_state["iopp_data"] = ioppd
+
+        if "iopp_data" not in st.session_state:
+            st.info("Clique sur **Calculer / Rafraîchir l'IOPP** pour lancer l'analyse.")
+        else:
+            ioppd = st.session_state["iopp_data"]
+            surperf = [p for p in roster
+                       if (ioppd.get(p["player_id"],{}).get("pct") or 0) >= 15]
+            sousp   = [p for p in roster
+                       if (ioppd.get(p["player_id"],{}).get("pct") or 0) <= -15]
+            m1,m2,m3 = st.columns(3)
+            m1.metric("🔥 Surperformance", len(surperf))
+            m2.metric("➡️ Dans la norme",  len(roster)-len(surperf)-len(sousp))
+            m3.metric("❄️ Sous-performance", len(sousp))
+            st.markdown("---")
+
+            def _sk(p):
+                return -(ioppd.get(p["player_id"],{}).get("pct") or 0)
+            sorted_r = sorted(roster, key=_sk)
+
+            COLS_I = 3
+            for row_i in [sorted_r[i:i+COLS_I] for i in range(0,len(sorted_r),COLS_I)]:
+                cols_i = st.columns(COLS_I)
+                for col_i, p in zip(cols_i, row_i):
+                    pid  = p["player_id"]
+                    ip   = ioppd.get(pid,{})
+                    l15  = ip.get("l15_avg")
+                    a25  = ip.get("avg_2025")
+                    pct  = ip.get("pct")
+                    delta= ip.get("delta")
+                    sta  = ip.get("status","❓")
+                    scol = ip.get("status_color","#8b949e")
+                    g15  = ip.get("l15_games",0)
+                    g25  = ip.get("games_2025",0)
+                    img  = get_player_headshot_url(pid)
+                    bc2  = "badge-pitcher" if p["role"]=="pitcher" else "badge-hitter"
+                    bl2  = "P" if p["role"]=="pitcher" else "H"
+
+                    if l15 is not None and a25 and a25>0:
+                        bar_pct = int(min(max(l15/a25,0),2)/2*100)
+                    else:
+                        bar_pct = 50
+                    bar_col = scol
+
+                    with col_i:
+                        st.markdown(f"""
+<div class="iopp-card">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+    <img src="{img}" style="width:46px;height:42px;object-fit:cover;
+     object-position:top;border-radius:6px;"
+     onerror="this.style.display='none'"/>
+    <div>
+      <div style="font-weight:700;color:#e6edf3;font-size:.9rem;">{p['name']}</div>
+      <div style="font-size:.7rem;color:#8b949e;">
+        {p['position']} <span class="badge {bc2}">{bl2}</span></div>
+    </div>
+    <div style="margin-left:auto;font-size:1.1rem;">{sta}</div>
+  </div>
+  <div class="iopp-bar-bg">
+    <div class="iopp-bar-fill"
+     style="width:{bar_pct}%;background:{bar_col};"></div>
+  </div>
+  <div style="display:flex;justify-content:space-between;
+               font-size:.72rem;margin-top:4px;gap:4px;">
+    <div>
+      <div style="color:#8b949e;">L{g15} 2026</div>
+      <div style="color:#e6edf3;font-weight:700;font-size:1rem;">
+        {f"{l15:+.1f}" if l15 is not None else "—"}</div>
+    </div>
+    <div style="text-align:center;">
+      <div style="color:#8b949e;">Δ vs 2025</div>
+      <div style="color:{scol};font-weight:700;font-size:1rem;">
+        {f"{delta:+.1f} ({pct:+.0f}%)" if delta is not None else "—"}</div>
+    </div>
+    <div style="text-align:right;">
+      <div style="color:#8b949e;">Moy 2025 ({g25}G)</div>
+      <div style="color:#e6edf3;font-weight:700;font-size:1rem;">
+        {f"{a25:.1f}" if a25 else "—"}</div>
+    </div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+            st.markdown("---")
+            st.markdown("**Tableau récapitulatif**")
+            rows_io = []
+            for p in sorted_r:
+                ip = ioppd.get(p["player_id"],{})
+                rows_io.append({
+                    "Joueur":   p["name"],
+                    "Pos":      p["position"],
+                    "Rôle":     p["role"],
+                    "L15 2026": ip.get("l15_avg"),
+                    "Moy 2025": ip.get("avg_2025"),
+                    "Δ":        ip.get("delta"),
+                    "Δ%":       ip.get("pct"),
+                    "Statut":   ip.get("status","—"),
+                })
+            df_io = pd.DataFrame(rows_io)
+
+            def _cp(v):
+                if pd.isna(v): return "color:#8b949e"
+                if v>=15:  return "color:#3fb950;font-weight:700"
+                if v<=-15: return "color:#f85149;font-weight:700"
+                return "color:#8b949e"
+
+            st.dataframe(
+                df_io.style
+                     .format("{:.1f}", subset=["L15 2026","Moy 2025","Δ"], na_rep="—")
+                     .format("{:.0f}%", subset=["Δ%"], na_rep="—")
+                     .applymap(_cp, subset=["Δ%"]),
+                hide_index=True, use_container_width=True)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 4 — Best So7
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_so7:
     st.subheader("🏆 Meilleure équipe So7 — Simulation gameweek")
-    st.caption(
-        "Calcule rétrospectivement la meilleure lineup So7 possible avec ton roster "
-        "sur la période choisie, selon le barême Sorare officiel."
-    )
+    col_gw_l, col_gw_r = st.columns([2,1])
 
-    # ─── Sélection / gestion des gameweeks ────────────────────────────────────
-    col_gw_left, col_gw_right = st.columns([2, 1])
-
-    with col_gw_right:
-        st.markdown("**📁 Sauvegarder cette gameweek**")
-        gw_label = st.text_input("Nom", placeholder="ex: GW 42 — 26-30 mars", key="gw_label")
-        gw_s = st.date_input("Début", key="gw_save_start",
-                             value=datetime.date.today() - datetime.timedelta(days=6))
-        gw_e = st.date_input("Fin", key="gw_save_end",
-                             value=datetime.date.today() - datetime.timedelta(days=3))
+    with col_gw_r:
+        st.markdown("**📁 Sauvegarder une gameweek**")
+        gw_lbl = st.text_input("Nom", placeholder="ex: GW Midweek 30 mars", key="gw_lbl")
+        gw_s_  = st.date_input("Début", key="gw_s", value=_today()-datetime.timedelta(days=6))
+        gw_e_  = st.date_input("Fin",   key="gw_e", value=_today()-datetime.timedelta(days=3))
         if st.button("💾 Sauvegarder", use_container_width=True):
-            if gw_label:
-                db.save_gameweek(gw_label, gw_s.isoformat(), gw_e.isoformat())
-                st.success("Gameweek sauvegardée !")
-                st.rerun()
+            if gw_lbl:
+                db.save_gameweek(gw_lbl, gw_s_.isoformat(), gw_e_.isoformat())
+                st.success("Sauvegardée !"); st.rerun()
+        saved = db.get_gameweeks()
+        if saved:
+            st.markdown("**📋 Sauvegardées**")
+            for g in saved:
+                c1,c2 = st.columns([3,1])
+                c1.markdown(f"**{g['label']}**  \n`{g['start_date']}` → `{g['end_date']}`")
+                if c2.button("🗑", key=f"del_{g['id']}"):
+                    db.delete_gameweek(g["id"]); st.rerun()
 
-        # Liste des gameweeks sauvegardées
-        saved_gws = db.get_gameweeks()
-        if saved_gws:
-            st.markdown("**📋 Gameweeks sauvegardées**")
-            for gw in saved_gws:
-                c1, c2 = st.columns([3, 1])
-                c1.markdown(f"**{gw['label']}**  \n`{gw['start_date']}` → `{gw['end_date']}`")
-                if c2.button("🗑", key=f"del_gw_{gw['id']}"):
-                    db.delete_gameweek(gw["id"])
-                    st.rerun()
+    with col_gw_l:
+        st.markdown("**📅 Choisir la période**")
+        cur2  = gw_module.current_gw()
+        prev2 = gw_module.previous_gw()
+        saved2 = db.get_gameweeks()
+        opts: dict = {
+            f"✅ GW en cours — {cur2['label']}":    (cur2["start_date"],  cur2["end_date"]),
+            f"⬅️ GW précédente — {prev2['label']}": (prev2["start_date"], prev2["end_date"]),
+        }
+        for g in saved2:
+            opts[f"📁 {g['label']}"] = (g["start_date"], g["end_date"])
+        opts["📆 Période manuelle"] = None
 
-    with col_gw_left:
-        st.markdown("**📅 Choisir la période à analyser**")
-
-        # Quick-select depuis les gameweeks sauvegardées
-        saved_gws = db.get_gameweeks()
-        gw_options = {f"{g['label']} ({g['start_date']} → {g['end_date']})": g
-                      for g in saved_gws}
-        gw_options["— Période manuelle —"] = None
-
-        selected_gw_label = st.selectbox("Gameweek sauvegardée", list(gw_options.keys()),
-                                         index=len(gw_options) - 1)
-        selected_gw = gw_options[selected_gw_label]
-
-        if selected_gw:
-            so7_start = datetime.date.fromisoformat(selected_gw["start_date"])
-            so7_end   = datetime.date.fromisoformat(selected_gw["end_date"])
-            st.info(f"Période : **{so7_start}** → **{so7_end}**")
+        ck = st.selectbox("Gameweek", list(opts.keys()))
+        ch = opts[ck]
+        if ch:
+            so7_start = datetime.date.fromisoformat(ch[0])
+            so7_end   = datetime.date.fromisoformat(ch[1])
+            st.info(f"📅 {so7_start.strftime('%d/%m')} → {so7_end.strftime('%d/%m/%Y')}")
         else:
-            so7_start = st.date_input("Début de gameweek", key="so7_start",
-                                      value=datetime.date.today() - datetime.timedelta(days=5))
-            so7_end   = st.date_input("Fin de gameweek", key="so7_end",
-                                      value=datetime.date.today() - datetime.timedelta(days=1))
+            so7_start = st.date_input("Début", key="so7_s2",
+                                      value=_today()-datetime.timedelta(days=5))
+            so7_end   = st.date_input("Fin",   key="so7_e2",
+                                      value=_today()-datetime.timedelta(days=1))
 
-        if so7_start > so7_end:
-            st.error("La date de début doit être avant la date de fin.")
-            st.stop()
-
-        # Synchro rapide si des jours manquent
-        nb_days = (so7_end - so7_start).days + 1
-        st.markdown(f"Période de **{nb_days} jour(s)** : "
-                    + ", ".join((so7_start + datetime.timedelta(days=i)).strftime("%d/%m")
-                                for i in range(nb_days)))
+        nb_d7 = (so7_end - so7_start).days + 1
+        st.markdown(f"Période : **{nb_d7} jour(s)** · " +
+                    " ".join((so7_start+datetime.timedelta(days=i)).strftime("%d/%m")
+                             for i in range(nb_d7)))
 
         if st.button("🚀 Calculer la meilleure So7", type="primary", use_container_width=True):
-            # 1. Synchro auto des jours manquants
-            missing = [
-                so7_start + datetime.timedelta(days=i)
-                for i in range(nb_days)
-                if not db.is_date_synced((so7_start + datetime.timedelta(days=i)).isoformat())
-            ]
+            missing = [so7_start+datetime.timedelta(days=i) for i in range(nb_d7)
+                       if not db.is_date_synced(
+                           (so7_start+datetime.timedelta(days=i)).isoformat())]
             if missing:
-                with st.spinner(f"Synchro {len(missing)} jour(s) manquant(s)…"):
-                    for d in missing:
-                        sync.sync_date(d, force=False)
-
-            # 2. Calcul des scores cumulés sur la gameweek
-            gw_scores = so7_engine.compute_gameweek_scores(
-                so7_start.isoformat(), so7_end.isoformat()
-            )
-            st.session_state["so7_result"] = so7_engine.optimize_so7(gw_scores)
-            st.session_state["so7_scores"] = gw_scores
+                with st.spinner(f"Synchro {len(missing)} jour(s)…"):
+                    for md in missing: sync.sync_date(md, force=False)
+            gw_sc2 = so7_engine.compute_gameweek_scores(
+                so7_start.isoformat(), so7_end.isoformat())
+            st.session_state["so7_result"] = so7_engine.optimize_so7(gw_sc2)
+            st.session_state["so7_scores"] = gw_sc2
             st.session_state["so7_start"]  = so7_start
             st.session_state["so7_end"]    = so7_end
 
-    # ─── Affichage du résultat ─────────────────────────────────────────────────
     st.markdown("---")
 
     if "so7_result" not in st.session_state or st.session_state["so7_result"] is None:
-        if db.get_roster():
-            st.info("👆 Configure la période et clique sur **Calculer la meilleure So7**.")
-        else:
-            st.warning("Roster vide — ajoute des joueurs dans la sidebar.")
+        st.info("Configure la période et clique sur **Calculer la meilleure So7**.")
     else:
-        result    = st.session_state["so7_result"]
-        gw_scores = st.session_state["so7_scores"]
-        gw_s_disp = st.session_state["so7_start"]
-        gw_e_disp = st.session_state["so7_end"]
+        result2 = st.session_state["so7_result"]
+        gw_sc2  = st.session_state["so7_scores"]
+        gw_s2   = st.session_state["so7_start"]
+        gw_e2   = st.session_state["so7_end"]
+        lineup2 = result2["lineup"]
+        total2  = result2["total"]
+        bench2  = result2["bench"]
+        best2   = max(lineup2.values(), key=lambda x: x["total_gw"])
 
-        lineup = result["lineup"]
-        total  = result["total"]
-        bench  = result["bench"]
-
-        # ── Métriques ──────────────────────────────────────────────────────────
-        best_player = max(lineup.values(), key=lambda p: p["total_gw"])
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("🏆 Score équipe So7", f"{total:.1f} pts")
-        m2.metric("📅 Période",
-                  f"{gw_s_disp.strftime('%d/%m')} → {gw_e_disp.strftime('%d/%m')}")
-        m3.metric("⭐ MVP", f"{best_player['name']} ({best_player['total_gw']:.1f})")
-        m4.metric("🎮 Matchs joués",
-                  sum(p["games_played"] for p in lineup.values()))
+        m1,m2,m3,m4 = st.columns(4)
+        m1.metric("🏆 Score So7", f"{total2:.1f} pts")
+        m2.metric("📅 Période", f"{gw_s2.strftime('%d/%m')} → {gw_e2.strftime('%d/%m')}")
+        m3.metric("⭐ MVP", f"{best2['name']} ({best2['total_gw']:.1f})")
+        m4.metric("🎮 Matchs", sum(p["games_played"] for p in lineup2.values()))
 
         st.markdown("---")
-
-        # ── Lineup So7 ─────────────────────────────────────────────────────────
-        st.markdown("### 🏟️ Meilleure lineup So7")
-
-        # CSS spécifique So7
-        st.markdown("""
-        <style>
-        .so7-slot {
-            background: linear-gradient(135deg, #161b22 0%, #1c2128 100%);
-            border: 1px solid #30363d;
-            border-radius: 10px;
-            padding: 14px 18px;
-            margin-bottom: 10px;
-        }
-        .so7-slot-label {
-            font-size: 0.7rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            color: #8b949e;
-            text-transform: uppercase;
-            margin-bottom: 2px;
-        }
-        .so7-player-name { font-size: 1.1rem; font-weight: 700; color: #e6edf3; }
-        .so7-player-sub  { font-size: 0.82rem; color: #8b949e; }
-        .so7-score       { font-size: 1.6rem; font-weight: 800; }
-        .so7-score-pos   { color: #3fb950; }
-        .so7-score-neg   { color: #f85149; }
-        .slot-sp   { border-left: 3px solid #388bfd; }
-        .slot-rp   { border-left: 3px solid #79c0ff; }
-        .slot-cmi  { border-left: 3px solid #d2a8ff; }
-        .slot-ci   { border-left: 3px solid #f0883e; }
-        .slot-of   { border-left: 3px solid #3fb950; }
-        .slot-xh   { border-left: 3px solid #ffa657; }
-        .slot-flex { border-left: 3px solid #ff7b72; }
-        </style>
-        """, unsafe_allow_html=True)
-
-        slot_css = {
-            "SP": "slot-sp", "RP": "slot-rp", "C_MI": "slot-cmi",
-            "CI": "slot-ci", "OF": "slot-of", "XH": "slot-xh", "FLEX": "slot-flex",
-        }
-
-        # Affichage en 2 colonnes : pitchers | hitters
-        col_pitch, col_hit = st.columns(2)
-
+        st.markdown("### 🏟️ Lineup So7")
+        scm = {"SP":"slot-sp","RP":"slot-rp","C_MI":"slot-cmi",
+               "CI":"slot-ci","OF":"slot-of","XH":"slot-xh","FLEX":"slot-flex"}
+        cp2, ch2 = st.columns(2)
         for slot in so7_engine.SO7_SLOTS:
-            if slot not in lineup:
-                continue
-            player = lineup[slot]
-            label  = so7_engine.SLOT_LABELS[slot]
-            sc     = player["total_gw"]
-            sc_cls = "so7-score-pos" if sc >= 0 else "so7-score-neg"
-            css    = slot_css.get(slot, "")
-            gp     = player["games_played"]
-
-            # Détail des scores jour par jour
-            days_str = "  ".join(
+            if slot not in lineup2: continue
+            pl2 = lineup2[slot]; lbl2 = so7_engine.SLOT_LABELS[slot]
+            sc2 = pl2["total_gw"]
+            sc2_cls = "so7-score-pos" if sc2>=0 else "so7-score-neg"
+            ds2 = "  ".join(
                 f"`{d[-5:]}` **{v:+.0f}**" if v is not None else f"`{d[-5:]}` —"
-                for d, v in sorted(player["days"].items())
-            )
+                for d,v in sorted(pl2["days"].items()))
+            h2 = f"""
+<div class="so7-slot {scm.get(slot,'')}">
+  <div class="so7-slot-label">{lbl2}</div>
+  <div class="so7-player-name">{pl2['name']}</div>
+  <div class="so7-player-sub">{pl2['team']} · {pl2['position']} · {pl2['games_played']} match(s)</div>
+</div>"""
+            tgt = cp2 if slot in ("SP","RP") else ch2
+            with tgt:
+                st.markdown(h2, unsafe_allow_html=True)
+                cx,cy = st.columns([1,3])
+                cx.markdown(f"<div class='so7-score {sc2_cls}'>{sc2:+.1f}</div>",
+                            unsafe_allow_html=True)
+                cy.markdown(ds2)
 
-            html = f"""
-            <div class="so7-slot {css}">
-              <div class="so7-slot-label">{label}</div>
-              <div class="so7-player-name">{player['name']}</div>
-              <div class="so7-player-sub">{player['team']} · {player['position']} · {gp} match(s)</div>
-            </div>
-            """
-
-            target_col = col_pitch if slot in ("SP", "RP") else col_hit
-            with target_col:
-                st.markdown(html, unsafe_allow_html=True)
-                c_score, c_days = st.columns([1, 3])
-                c_score.markdown(
-                    f"<div class='so7-score {sc_cls}'>{sc:+.1f}</div>",
-                    unsafe_allow_html=True
-                )
-                c_days.markdown(days_str)
-
-        # ── Récap tableau ──────────────────────────────────────────────────────
         st.markdown("---")
-        st.markdown("### 📊 Récapitulatif complet du roster")
+        st.markdown("### 📊 Récapitulatif")
+        nd2  = (gw_e2-gw_s2).days+1
+        ad2  = [(gw_s2+datetime.timedelta(days=i)).isoformat() for i in range(nd2)]
+        rr2  = []
+        for pp2 in gw_sc2:
+            su2 = next((so7_engine.SLOT_LABELS[s] for s in lineup2
+                        if lineup2[s]["player_id"]==pp2["player_id"]), "— Banc")
+            rw2 = {"Joueur":pp2["name"],"Pos":pp2["position"],"Slot":su2,
+                   "Total GW":pp2["total_gw"],"Matchs":pp2["games_played"]}
+            for d2 in ad2: rw2[d2[5:]] = pp2["days"].get(d2)
+            rr2.append(rw2)
+        df2 = pd.DataFrame(rr2).sort_values("Total GW",ascending=False)
+        dc2 = [d[5:] for d in ad2]
 
-        # Construire toutes les dates de la GW
-        nb_d = (gw_e_disp - gw_s_disp).days + 1
-        all_dates = [(gw_s_disp + datetime.timedelta(days=i)).isoformat()
-                     for i in range(nb_d)]
+        def _cs2(v):
+            if pd.isna(v): return "color:#8b949e"
+            if v>=20: return "background-color:#1a7f37;color:white"
+            if v>=10: return "background-color:#196c2e;color:#7ee787"
+            if v>0:   return "color:#7ee787"
+            if v<0:   return "background-color:#6e1c1c;color:#ff7b72"
+            return "color:#8b949e"
 
-        rows_recap = []
-        used_in_lineup = {lineup[s]["player_id"] for s in lineup}
+        st.dataframe(
+            df2.style.format("{:.1f}", subset=["Total GW"]+dc2, na_rep="—")
+                     .applymap(_cs2, subset=dc2),
+            use_container_width=True, hide_index=True)
 
-        for p in gw_scores:
-            slot_used = next(
-                (so7_engine.SLOT_LABELS[s] for s in lineup if lineup[s]["player_id"] == p["player_id"]),
-                "— Banc"
-            )
-            row = {
-                "Joueur":   p["name"],
-                "Pos":      p["position"],
-                "Slot So7": slot_used,
-                "Total GW": p["total_gw"],
-                "Matchs":   p["games_played"],
-            }
-            for d in all_dates:
-                row[d[5:]] = p["days"].get(d)   # format MM-DD
-            rows_recap.append(row)
-
-        df_recap = pd.DataFrame(rows_recap).sort_values("Total GW", ascending=False)
-
-        date_cols = [d[5:] for d in all_dates]
-
-        def color_slot(val):
-            if val == "— Banc":
-                return "color: #8b949e"
-            return "color: #3fb950; font-weight: 600"
-
-        def color_score(val):
-            if pd.isna(val):
-                return "color: #8b949e"
-            if val >= 20:
-                return "background-color: #1a7f37; color: white"
-            if val >= 10:
-                return "background-color: #196c2e; color: #7ee787"
-            if val > 0:
-                return "color: #7ee787"
-            if val < 0:
-                return "background-color: #6e1c1c; color: #ff7b72"
-            return "color: #8b949e"
-
-        styled = (
-            df_recap.style
-            .format("{:.1f}", subset=["Total GW"] + date_cols, na_rep="—")
-            .applymap(color_score, subset=date_cols)
-            .applymap(color_slot, subset=["Slot So7"])
-        )
-        st.dataframe(styled, use_container_width=True, hide_index=True)
-
-        # ── Bench ──────────────────────────────────────────────────────────────
-        if bench:
-            with st.expander(f"🪑 Banc ({len(bench)} joueur(s) non sélectionnés)"):
-                for p in bench:
-                    reason = ""
-                    eligible = p["eligible_slots"]
-                    # Chercher quel slot ils auraient pu occuper
-                    blocked = [s for s in eligible if s in lineup and lineup[s]["total_gw"] >= p["total_gw"]]
-                    if blocked:
-                        reason = f"→ Score inférieur au titulaire en {', '.join(so7_engine.SLOT_LABELS[s] for s in blocked)}"
-                    st.markdown(
-                        f"**{p['name']}** `{p['position']}` — **{p['total_gw']:+.1f} pts** "
-                        f"({p['games_played']} matchs)  {reason}"
-                    )
+        if bench2:
+            with st.expander(f"🪑 Banc ({len(bench2)} joueur(s))"):
+                for pb3 in bench2:
+                    bl3 = [s for s in pb3["eligible_slots"]
+                           if s in lineup2 and lineup2[s]["total_gw"]>=pb3["total_gw"]]
+                    rz = (f"→ Score < titulaire : "
+                          f"{', '.join(so7_engine.SLOT_LABELS[s] for s in bl3)}"
+                          if bl3 else "")
+                    st.markdown(f"**{pb3['name']}** `{pb3['position']}` "
+                                f"— **{pb3['total_gw']:+.1f} pts** "
+                                f"({pb3['games_played']}G) {rz}")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TAB 4 — Synchronisation manuelle avancée
+# TAB 5 — Synchronisation
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_sync:
     st.subheader("🔄 Synchronisation manuelle")
+    ca, cb = st.columns(2)
 
-    col_a, col_b = st.columns(2)
+    with ca:
+        st.markdown("**Date précise**")
+        sd2   = st.date_input("Date", value=_today()-datetime.timedelta(days=1), key="sd2")
+        force2 = st.checkbox("Forcer (re-fetch)", value=False)
+        if st.button("▶ Lancer", use_container_width=True, key="btn_s"):
+            with st.spinner(f"Synchro {sd2}…"):
+                r2 = sync.sync_date(sd2, force=force2)
+            if r2.get("error_msg"): st.error(f"Erreur : {r2['error_msg']}")
+            else: st.success(f"✅ {r2.get('synced',0)} | {r2.get('no_game',0)} DNS | {r2.get('errors',0)} err")
 
-    with col_a:
-        st.markdown("**Synchro d'une date précise**")
-        sync_date_sel = st.date_input("Date à synchro", key="sync_single",
-                                      value=datetime.date.today() - datetime.timedelta(days=1))
-        force_resync = st.checkbox("Forcer (re-fetch même si déjà synchro)", value=False)
-
-        if st.button("▶ Lancer", key="btn_single", use_container_width=True):
-            with st.spinner(f"Synchro {sync_date_sel}…"):
-                r = sync.sync_date(sync_date_sel, force=force_resync)
-            if r.get("error_msg"):
-                st.error(f"Erreur : {r['error_msg']}")
-            else:
-                st.success(f"✅ {r.get('synced',0)} synchro | {r.get('no_game',0)} DNS | {r.get('errors',0)} erreurs")
-
-    with col_b:
-        st.markdown("**Synchro des N derniers jours**")
-        n_days = st.slider("Nombre de jours", 1, 30, 7)
-
-        if st.button("▶ Lancer (multi-jours)", key="btn_multi", use_container_width=True):
-            progress = st.progress(0)
-            results = []
-            today = datetime.date.today()
-            for i in range(1, n_days + 1):
-                d = today - datetime.timedelta(days=i)
-                progress.progress(i / n_days, text=f"Synchro {d}…")
-                r = sync.sync_date(d, force=False)
-                r["date"] = d.isoformat()
-                results.append(r)
-            progress.empty()
-
-            df_res = pd.DataFrame(results)[["date", "synced", "no_game", "errors"]]
-            st.dataframe(df_res, hide_index=True, use_container_width=True)
+    with cb:
+        st.markdown("**N derniers jours**")
+        n2 = st.slider("Jours", 1, 30, 7)
+        if st.button("▶ Lancer (multi-jours)", use_container_width=True, key="btn_m"):
+            pb3 = st.progress(0); res3 = []
+            for i in range(1,n2+1):
+                d3 = _today()-datetime.timedelta(days=i)
+                pb3.progress(i/n2, text=f"{d3}…")
+                r3 = sync.sync_date(d3,force=False); r3["date"]=d3.isoformat()
+                res3.append(r3)
+            pb3.empty()
+            st.dataframe(pd.DataFrame(res3)[["date","synced","no_game","errors"]],
+                         hide_index=True, use_container_width=True)
 
     st.markdown("---")
-    st.markdown("**État du scheduler automatique**")
-    scheduler_ok = sync._scheduler and sync._scheduler.running
-    if scheduler_ok:
-        st.success("✅ Scheduler actif — synchro toutes les 15 min (13h–04h UTC)")
-        jobs = sync._scheduler.get_jobs()
-        for j in jobs:
-            st.code(f"{j.id}: prochain run → {j.next_run_time}")
+    st.markdown("**Scheduler**")
+    ok2 = sync._scheduler and sync._scheduler.running
+    if ok2:
+        st.success("✅ Actif — synchro toutes les heures")
+        for j in sync._scheduler.get_jobs():
+            st.code(f"{j.id} → prochain run : {j.next_run_time}")
     else:
         st.warning("⚠️ Scheduler inactif.")

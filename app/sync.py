@@ -125,11 +125,11 @@ _scheduler = None
 
 
 def start_scheduler():
-    """Lance le scheduler : synchro auto toutes les 15 min entre 13h et 3h UTC (saison MLB)."""
+    """Lance le scheduler : synchro auto toutes les heures, 24h/24."""
     global _scheduler
     try:
         from apscheduler.schedulers.background import BackgroundScheduler
-        from apscheduler.triggers.cron import CronTrigger
+        from apscheduler.triggers.interval import IntervalTrigger
     except ImportError:
         logger.warning("[scheduler] APScheduler non installé, synchro auto désactivée.")
         return
@@ -137,17 +137,18 @@ def start_scheduler():
     if _scheduler and _scheduler.running:
         return
 
-    _scheduler = BackgroundScheduler(timezone="UTC")
-    # Toutes les 15 min de 13h00 UTC (9h ET) à 04h00 UTC (0h ET)
+    _scheduler = BackgroundScheduler(timezone="America/New_York")
+    # Toutes les heures, 24h/24
     _scheduler.add_job(
         _auto_sync_job,
-        CronTrigger(minute="*/15", hour="13-23,0-3"),
-        id="mlb_sync",
+        IntervalTrigger(hours=1),
+        id="mlb_sync_hourly",
         replace_existing=True,
         max_instances=1,
+        next_run_time=datetime.datetime.now(),   # ← premier run immédiat au démarrage
     )
     _scheduler.start()
-    logger.info("[scheduler] Démarré : synchro toutes les 15 min (13h-04h UTC)")
+    logger.info("[scheduler] Démarré : synchro toutes les heures (ET), premier run immédiat")
 
 
 def stop_scheduler():
@@ -158,11 +159,12 @@ def stop_scheduler():
 
 
 def _auto_sync_job():
-    """Job automatique : synchro d'hier (matchs terminés) et d'aujourd'hui."""
+    """Job automatique toutes les heures : synchro d'aujourd'hui et d'hier."""
     today = datetime.date.today()
     yesterday = today - datetime.timedelta(days=1)
-    for d in [yesterday, today]:
+    for d in [today, yesterday]:
         try:
             sync_date(d, force=False)
+            logger.info(f"[auto_sync] {d} OK")
         except Exception as e:
             logger.error(f"[auto_sync] Erreur pour {d}: {e}")

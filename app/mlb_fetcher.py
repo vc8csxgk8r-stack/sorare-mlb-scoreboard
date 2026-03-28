@@ -165,7 +165,16 @@ def get_player_stats_for_date(player_id: int, date: datetime.date) -> dict | Non
     return None  # Pas joué ce jour
 
 
-def _parse_ip(ip_str: str) -> float:
+def get_player_headshot_url(player_id: int) -> str:
+    """
+    Retourne l'URL du portrait officiel MLB (API img.mlbstatic.com).
+    Toujours disponible, pas besoin d'appel réseau pour construire l'URL.
+    """
+    return f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/{player_id}/headshot/67/current"
+
+def get_player_action_url(player_id: int) -> str:
+    """Portrait action (fond transparent, format moderne)."""
+    return f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:action:cutout:current.png/w_280,q_auto:best/v1/people/{player_id}/action/cutout/current"
     """Convertit '6.2' (6 manches + 2 tiers) en float décimal réel."""
     try:
         parts = str(ip_str).split(".")
