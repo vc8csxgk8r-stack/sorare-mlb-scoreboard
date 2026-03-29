@@ -94,6 +94,11 @@ def sync_date(date: datetime.date, force: bool = False) -> dict:
                     breakdown=scored["breakdown"],
                     raw_stats=stats,
                 )
+                # Mettre à jour le rôle dans le roster si le fetcher l'a détecté
+                detected_role = stats.get("role", "")
+                if detected_role and detected_role != player.get("role", ""):
+                    db.update_player_role(pid, detected_role)
+                    logger.info(f"[sync] Rôle mis à jour pour {name}: {detected_role}")
                 result["synced"] += 1
                 logger.info(f"[sync] {name} : {scored['total']} pts le {date_str}")
 

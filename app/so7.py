@@ -59,16 +59,26 @@ SLOT_LABELS = {
 }
 
 
-def get_eligible_slots(position: str) -> list[str]:
-    """Retourne les slots So7 dans lesquels un joueur peut jouer selon sa position."""
+def get_eligible_slots(position: str, role: str = "") -> list[str]:
+    """
+    Retourne les slots So7 dans lesquels un joueur peut jouer selon sa position.
+    Si la position n'est pas reconnue, on utilise le rôle comme fallback.
+    """
     pos = position.upper().strip()
-    return POSITION_ELIGIBILITY.get(pos, ["XH", "FLEX"])
+    slots = POSITION_ELIGIBILITY.get(pos)
+    if slots:
+        return slots
+    # Fallback par rôle si position inconnue ou générique
+    if role == "pitcher":
+        return ["SP", "RP", "FLEX"]
+    return ["XH", "FLEX"]
 
 
 def compute_gameweek_scores(start_date: str, end_date: str) -> list[dict]:
     """
     Pour chaque joueur du roster, cumule ses scores sur la plage de dates.
-    Retourne une liste de dicts avec player_id, name, position, role, total_gw, details_par_jour.
+    Le rôle est lu depuis les scores DB (détecté par le fetcher MLB)
+    plutôt que depuis le roster (peut être mal défini à l'ajout).
     """
     roster = db.get_roster()
     result = []
@@ -77,22 +87,33 @@ def compute_gameweek_scores(start_date: str, end_date: str) -> list[dict]:
         pid = player["player_id"]
         scores = db.get_scores_range(pid, start_date, end_date)
 
-        total_gw = sum(s["total"] for s in scores if s.get("total") is not None)
-        games_played = sum(1 for s in scores if s.get("total") is not None)
-        days_detail = {
-            s["date"]: s.get("total") for s in scores
-        }
+        played = [s for s in scores if s.get("total") is not None]
+        total_gw     = sum(s["total"] for s in played)
+        games_played = len(played)
+        days_detail  = {s["date"]: s.get("total") for s in scores}
+
+        # Priorité : rôle détecté par le fetcher MLB dans les scores (plus fiable)
+        # Fallback : rôle défini dans le roster
+        detected_roles = [s["role"] for s in played if s.get("role")]
+        if detected_roles:
+            # Si au moins une sortie en pitcher → on le considère pitcher
+            role = "pitcher" if "pitcher" in detected_roles else "hitter"
+        else:
+            role = player.get("role", "hitter")
+
+        # Position : préférer celle du roster (la position MLB officielle)
+        position = player.get("position", "?")
 
         result.append({
-            "player_id":    pid,
-            "name":         player["name"],
-            "position":     player.get("position", "?"),
-            "role":         player.get("role", "hitter"),
-            "team":         player.get("team", ""),
-            "total_gw":     round(total_gw, 2),
-            "games_played": games_played,
-            "days":         days_detail,
-            "eligible_slots": get_eligible_slots(player.get("position", "")),
+            "player_id":      pid,
+            "name":           player["name"],
+            "position":       position,
+            "role":           role,
+            "team":           player.get("team", ""),
+            "total_gw":       round(total_gw, 2),
+            "games_played":   games_played,
+            "days":           days_detail,
+            "eligible_slots": get_eligible_slots(position, role),
         })
 
     return sorted(result, key=lambda x: x["total_gw"], reverse=True)
