@@ -3,3 +3,5 @@ requests==2.31.0
 pandas==2.2.2
 apscheduler==3.10.4
 matplotlib==3.9.0
+fastapi==0.111.0
+uvicorn==0.29.0
