@@ -3,168 +3,195 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=1920"/>
-<title>Dashboard Matin — ⚾ MLB × 🍺 Brasserie</title>
+<title>Dashboard — ⚾ MLB × 🍺 Brasserie</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--border:#30363d;
   --text:#e6edf3;--muted:#8b949e;
   --green:#3fb950;--green-dk:#196c2e;
-  --red:#f85149;  --red-dk:#6e1c1c;
-  --blue:#388bfd; --blue-l:#79c0ff;
-  --gold:#f1c40f; --amber:#ffa657;
-  --purple:#d2a8ff;--orange:#f0883e;
-  --hdr:62px;--font:'Inter',system-ui,sans-serif;
+  --red:#f85149;--red-dk:#6e1c1c;
+  --blue:#388bfd;--blue-l:#79c0ff;
+  --gold:#f1c40f;--amber:#ffa657;--purple:#d2a8ff;
+  --hdr:58px;--font:'Inter',system-ui,sans-serif;
 }
 html,body{width:100vw;height:100vh;overflow:hidden;
   background:var(--bg);color:var(--text);font-family:var(--font);}
 
-/* ── Layout ── */
+/* ════ Layout ════ */
 #app{display:flex;width:100vw;height:100vh;}
 .panel{width:50vw;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
 #panel-mlb{border-right:2px solid var(--border);}
 
-/* ── Header ── */
+/* ════ Header ════ */
 .hdr{height:var(--hdr);display:flex;align-items:center;justify-content:space-between;
-  padding:0 22px;background:linear-gradient(135deg,var(--bg2),var(--bg3));
-  border-bottom:1px solid var(--border);flex-shrink:0;gap:12px;}
-.hdr-title{font-size:1.05rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;}
-.hdr-sub{font-size:.72rem;color:var(--muted);}
-.hdr-clock{font-size:1.45rem;font-weight:800;font-variant-numeric:tabular-nums;
+  padding:0 20px;background:linear-gradient(135deg,var(--bg2),var(--bg3));
+  border-bottom:1px solid var(--border);flex-shrink:0;}
+.hdr-title{font-size:1rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;}
+.hdr-sub{font-size:.68rem;color:var(--muted);margin-top:1px;}
+.hdr-clock{font-size:1.35rem;font-weight:800;font-variant-numeric:tabular-nums;
   color:var(--blue-l);white-space:nowrap;}
 
-/* ── GW Banner ── */
-#gw-banner{display:flex;align-items:center;padding:9px 22px;gap:16px;
+/* ════ GW Banner ════ */
+#gw-banner{display:flex;align-items:center;padding:8px 20px;gap:14px;
   background:linear-gradient(135deg,#161b22,#1c2128);
   border-bottom:1px solid var(--border);flex-shrink:0;}
-.gw-lbl{font-size:.58rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;}
-.gw-name{font-size:.9rem;font-weight:700;}
-.gw-dates{font-size:.68rem;color:var(--muted);}
-.gw-badge{background:var(--bg3);color:var(--blue-l);border-radius:5px;padding:2px 9px;
-  font-size:.68rem;font-weight:800;white-space:nowrap;}
-.gw-score-big{font-size:1.5rem;font-weight:900;}
-.pos{color:var(--green);} .neg{color:var(--red);} .muted{color:var(--muted);}
+.gw-lbl{font-size:.55rem;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.08em;}
+.gw-name{font-size:.88rem;font-weight:700;}
+.gw-dates{font-size:.65rem;color:var(--muted);}
+.gw-badge{background:var(--bg3);color:var(--blue-l);border-radius:5px;
+  padding:2px 8px;font-size:.65rem;font-weight:800;white-space:nowrap;}
+.gw-score-big{font-size:1.45rem;font-weight:900;}
+.pos{color:var(--green);}  .neg{color:var(--red);}  .muted{color:var(--muted);}
 
-/* ── MLB content ── */
+/* ════ MLB content ════ */
 #mlb-content{flex:1;overflow:hidden;display:flex;flex-direction:column;}
 
-/* ── So7 ── */
-#so7-section{padding:11px 22px 8px;border-bottom:1px solid var(--border);flex-shrink:0;}
-.sec-title{font-size:.6rem;font-weight:800;color:var(--muted);
-  text-transform:uppercase;letter-spacing:.1em;margin-bottom:7px;}
-#so7-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;}
-.slot-card{background:var(--bg2);border:1px solid var(--border);border-radius:7px;
-  padding:5px 9px;display:flex;align-items:center;gap:7px;}
-.slot-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
-.slot-info{flex:1;min-width:0;}
-.slot-pos{font-size:.55rem;font-weight:700;color:var(--muted);text-transform:uppercase;}
-.slot-name{font-size:.78rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.slot-team{font-size:.58rem;color:var(--muted);}
-.slot-score{font-size:.95rem;font-weight:800;white-space:nowrap;}
-#so7-total{text-align:right;font-size:.7rem;color:var(--muted);margin-top:3px;}
+/* ════ So7 ════ */
+#so7-section{padding:9px 20px 7px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.sec-title{font-size:.58rem;font-weight:800;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;}
+#so7-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;}
+.sc{background:var(--bg2);border:1px solid var(--border);border-radius:6px;
+  padding:5px 8px;display:flex;align-items:center;gap:6px;}
+.sc-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.sc-info{flex:1;min-width:0;}
+.sc-pos{font-size:.52rem;font-weight:700;color:var(--muted);text-transform:uppercase;}
+.sc-name{font-size:.75rem;font-weight:700;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sc-team{font-size:.55rem;color:var(--muted);}
+.sc-score{font-size:.92rem;font-weight:800;white-space:nowrap;}
+#so7-total{text-align:right;font-size:.68rem;color:var(--muted);margin-top:3px;}
 
-/* ── Carousel ── */
-#carousel-section{flex:1;overflow:hidden;padding:9px 22px 11px;
+/* ════ Grille joueurs — cartes CARRÉES ════ */
+#grid-section{flex:1;overflow:hidden;padding:8px 20px 10px;
   display:flex;flex-direction:column;}
-#carousel-wrap{flex:1;overflow:hidden;position:relative;}
-#carousel-track{display:flex;gap:8px;height:100%;
-  transition:transform .55s cubic-bezier(.25,.8,.25,1);will-change:transform;}
-.ptile{flex-shrink:0;width:calc((100% - 40px)/5);height:100%;
-  background:linear-gradient(180deg,var(--bg3),var(--bg2));
-  border:2px solid var(--border);border-radius:11px;
-  overflow:hidden;display:flex;flex-direction:column;}
-.ptile:hover{border-color:var(--blue);}
-.ptile.r1{border-color:var(--gold);box-shadow:0 0 11px #f1c40f33;}
-.ptile.r2{border-color:#95a5a6;}
-.ptile.r3{border-color:#cd7f32;}
-.th{background:linear-gradient(135deg,#0d1117,#21262d);
-  padding:3px 7px;display:flex;justify-content:space-between;align-items:center;}
-.th-pos{font-size:.6rem;font-weight:700;color:var(--muted);}
-.th-rank{font-size:.65rem;font-weight:800;color:var(--gold);}
-.ti-wrap{background:linear-gradient(180deg,#21262d,#161b22);flex:1;
-  display:flex;align-items:flex-end;justify-content:center;
-  overflow:hidden;padding:5px 3px 0;}
-.ti-wrap img{width:100%;max-width:85px;height:90px;
-  object-fit:cover;object-position:top;border-radius:4px 4px 0 0;display:block;margin:0 auto;}
-.t-name{font-size:.72rem;font-weight:700;padding:4px 5px 1px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;}
-.t-team{font-size:.58rem;color:var(--muted);text-align:center;padding:0 4px 3px;}
-.t-strip{background:var(--bg);border-top:1px solid var(--border);padding:4px 3px;text-align:center;}
-.t-score-day{font-size:1.05rem;font-weight:800;line-height:1;}
-.t-score-gw{font-size:.62rem;color:var(--blue-l);font-weight:700;}
-.t-dns{font-size:.72rem;color:var(--muted);}
-#cdots{display:flex;justify-content:center;gap:4px;margin-top:5px;}
-.cdot{width:5px;height:5px;border-radius:50%;background:var(--border);
-  cursor:pointer;transition:background .3s,transform .3s;}
-.cdot.on{background:var(--blue);transform:scale(1.5);}
 
-/* ═══════════════════ BRASSERIE ═══════════════════ */
-#brew-content{flex:1;overflow-y:auto;overflow-x:hidden;
-  padding:14px 22px;display:flex;flex-direction:column;gap:13px;
+#player-grid{
+  flex:1;
+  display:grid;
+  /* 5 colonnes fixes, hauteur auto pour remplir l'espace */
+  grid-template-columns:repeat(5,1fr);
+  grid-auto-rows:1fr;
+  gap:7px;
+  overflow:hidden;
+}
+
+/* ── Carte joueur carrée ── */
+.pcard{
+  background:linear-gradient(160deg,var(--bg3) 0%,var(--bg2) 100%);
+  border:2px solid var(--border);
+  border-radius:10px;
+  overflow:hidden;
+  display:flex;flex-direction:column;
+  position:relative;
+  transition:border-color .2s;
+}
+.pcard:hover{border-color:var(--blue);}
+.pcard.r1{border-color:var(--gold);box-shadow:0 0 10px #f1c40f33;}
+.pcard.r2{border-color:#95a5a6;}
+.pcard.r3{border-color:#cd7f32;}
+
+/* Header minimaliste */
+.pc-top{display:flex;justify-content:space-between;align-items:center;
+  padding:3px 6px;background:rgba(0,0,0,.35);flex-shrink:0;}
+.pc-pos{font-size:.55rem;font-weight:700;color:var(--muted);}
+.pc-rank{font-size:.6rem;font-weight:800;color:var(--gold);}
+
+/* Photo — prend tout l'espace central */
+.pc-img{flex:1;overflow:hidden;display:flex;align-items:flex-end;justify-content:center;
+  background:linear-gradient(180deg,#1a2030 0%,#111820 100%);padding:3px 2px 0;}
+.pc-img img{
+  width:100%;max-width:100px;
+  height:100%;max-height:100px;
+  object-fit:cover;object-position:top center;
+  border-radius:4px 4px 0 0;display:block;
+}
+
+/* Nom */
+.pc-name{font-size:.68rem;font-weight:700;text-align:center;
+  padding:3px 4px 1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  flex-shrink:0;}
+
+/* ── Bandeau score — très visible ── */
+.pc-score{
+  flex-shrink:0;
+  padding:4px 6px 5px;
+  text-align:center;
+  background:#0d1117;
+  border-top:1px solid var(--border);
+}
+.pc-score-day{
+  font-size:1.15rem;font-weight:900;line-height:1;letter-spacing:-.01em;
+}
+.pc-score-day.pos{color:var(--green);}
+.pc-score-day.neg{color:var(--red);}
+.pc-score-day.dns{color:var(--muted);font-size:.75rem;}
+.pc-score-gw{
+  font-size:.6rem;color:var(--blue-l);font-weight:700;margin-top:1px;
+}
+
+/* Dots pagination */
+#pgdots{display:flex;justify-content:center;gap:4px;margin-top:5px;flex-shrink:0;}
+.pdot{width:5px;height:5px;border-radius:50%;background:var(--border);
+  cursor:pointer;transition:background .25s,transform .25s;}
+.pdot.on{background:var(--blue);transform:scale(1.5);}
+
+/* ════ BRASSERIE ════ */
+#brew-content{flex:1;overflow-y:auto;padding:12px 20px;
+  display:flex;flex-direction:column;gap:11px;
   scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
 
-/* Carousel brasserie */
-#brew-carousel{flex:1;position:relative;display:flex;flex-direction:column;overflow:hidden;}
-#brew-track-wrap{flex:1;overflow:hidden;}
-#brew-track{display:flex;flex-direction:column;gap:13px;
-  transition:transform .6s cubic-bezier(.25,.8,.25,1);will-change:transform;}
-
 .bc{background:linear-gradient(135deg,var(--bg2),#1a1f27);
-  border:1px solid var(--border);border-radius:13px;overflow:hidden;flex-shrink:0;}
-.bc-hdr{display:flex;align-items:center;padding:11px 15px;gap:12px;
+  border:1px solid var(--border);border-radius:12px;overflow:hidden;flex-shrink:0;}
+.bc-hdr{display:flex;align-items:center;padding:10px 14px;gap:10px;
   border-bottom:1px solid var(--border);}
-.bc-icon{font-size:1.8rem;flex-shrink:0;}
-.bc-title{font-size:1rem;font-weight:800;}
-.bc-style{font-size:.7rem;color:var(--muted);}
-.bc-date{font-size:.63rem;color:var(--muted);margin-top:1px;}
-.bc-badge{margin-left:auto;flex-shrink:0;padding:3px 9px;border-radius:11px;
-  font-size:.63rem;font-weight:800;}
+.bc-icon{font-size:1.6rem;flex-shrink:0;}
+.bc-title{font-size:.95rem;font-weight:800;}
+.bc-meta{font-size:.65rem;color:var(--muted);margin-top:1px;}
+.bc-badge{margin-left:auto;flex-shrink:0;padding:3px 8px;border-radius:10px;
+  font-size:.6rem;font-weight:800;}
 .s-ferm  {background:#1a4d3a;color:#3fb950;border:1px solid #3fb950;}
 .s-ready {background:#2d3d1a;color:#8fe87e;border:1px solid #8fe87e;}
 .s-bottle{background:#1a2d4d;color:var(--blue-l);border:1px solid var(--blue-l);}
 .s-done  {background:#2d1a4d;color:var(--purple);border:1px solid var(--purple);}
-.bc-body{padding:12px 15px;}
+.bc-body{padding:10px 14px;}
+.bar-wrap{display:flex;align-items:center;gap:9px;margin-bottom:9px;}
+.bar-bg{flex:1;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:4px;
+  background:linear-gradient(90deg,var(--blue),var(--green));}
+.bar-fill.bottle{background:linear-gradient(90deg,var(--blue-l),var(--purple));}
+.bar-pct{font-size:.72rem;font-weight:800;color:var(--blue-l);white-space:nowrap;}
+.brew-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+.bs{background:var(--bg3);border-radius:6px;padding:6px 8px;text-align:center;}
+.bs-l{font-size:.52rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+.bs-v{font-size:.88rem;font-weight:800;margin-top:1px;}
+.brew-note{margin-top:8px;font-size:.65rem;color:var(--muted);
+  background:var(--bg3);border-radius:5px;padding:5px 8px;}
+.dc{display:flex;align-items:flex-end;gap:2px;height:28px;margin-top:8px;}
+.dc-b{flex:1;background:#1f6feb33;border:1px solid #388bfd44;
+  border-radius:2px 2px 0 0;min-height:3px;}
 
-.bar-wrap{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
-.bar-bg{flex:1;height:9px;background:var(--bg3);border-radius:5px;overflow:hidden;}
-.bar-fill{height:100%;border-radius:5px;background:linear-gradient(90deg,var(--blue),var(--green));transition:width 1s;}
-.bar-fill.red{background:linear-gradient(90deg,#f85149,#ffa657);}
-.bar-pct{font-size:.75rem;font-weight:800;color:var(--blue-l);white-space:nowrap;}
+/* Header status brasserie */
+#brew-status-bar{display:flex;gap:8px;padding:6px 20px 2px;flex-shrink:0;}
+.bchip{background:var(--bg3);border:1px solid var(--border);border-radius:5px;
+  padding:3px 9px;font-size:.65rem;font-weight:700;}
 
-.brew-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;}
-.bs{background:var(--bg3);border-radius:7px;padding:7px 9px;text-align:center;}
-.bs-lbl{font-size:.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
-.bs-val{font-size:.92rem;font-weight:800;margin-top:1px;}
+/* Brew dots */
+#brew-dots{display:flex;justify-content:center;gap:4px;padding:6px 0 2px;flex-shrink:0;}
 
-/* Mini courbe densité */
-.dc{display:flex;align-items:flex-end;gap:3px;height:32px;margin-top:9px;}
-.dc-bar{flex:1;background:#1f6feb44;border:1px solid #388bfd55;
-  border-radius:2px 2px 0 0;position:relative;min-height:3px;}
-.dc-bar span{position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);
-  font-size:.5rem;color:var(--muted);white-space:nowrap;}
-
-.brew-note{margin-top:8px;font-size:.68rem;color:var(--muted);
-  background:var(--bg3);border-radius:5px;padding:5px 9px;}
-
-/* Dots brasserie */
-#brew-dots{display:flex;justify-content:center;gap:5px;padding:8px 0 4px;flex-shrink:0;}
-
-/* Status général brasserie */
-#brew-header-status{display:flex;align-items:center;gap:10px;padding:8px 22px 4px;flex-shrink:0;}
-.brew-chip{background:var(--bg3);border:1px solid var(--border);border-radius:6px;
-  padding:3px 10px;font-size:.68rem;font-weight:700;}
-
-/* Erreur / loading */
-.err{color:var(--red);font-size:.75rem;background:var(--red-dk);
-  border-radius:7px;padding:5px 11px;}
+/* Erreur */
+.err{color:var(--red);font-size:.72rem;background:var(--red-dk);
+  border-radius:6px;padding:4px 10px;}
 .spin{animation:pulse 1.4s infinite;}
-@keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+@keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
 </style>
 </head>
 <body>
 <div id="app">
 
-<!-- ══════════════════ PANNEAU MLB ══════════════════ -->
+<!-- ══════════════ MLB ══════════════ -->
 <div class="panel" id="panel-mlb">
   <div class="hdr">
     <div>
@@ -177,379 +204,404 @@ html,body{width:100vw;height:100vh;overflow:hidden;
   <div id="gw-banner">
     <div>
       <div class="gw-lbl">Gameweek en cours</div>
-      <div class="gw-name" id="gw-name"><span class="spin muted">Chargement…</span></div>
+      <div class="gw-name" id="gw-name"><span class="spin muted">…</span></div>
       <div class="gw-dates" id="gw-dates"></div>
     </div>
     <div class="gw-badge" id="gw-prog"></div>
     <div style="margin-left:auto;text-align:right;">
-      <div class="gw-lbl">Score équipe GW</div>
-      <div class="gw-score-big pos" id="gw-tot">—</div>
+      <div class="gw-lbl">Score GW équipe</div>
+      <div class="gw-score-big" id="gw-tot">—</div>
     </div>
   </div>
 
   <div id="mlb-content">
     <div id="so7-section">
       <div class="sec-title">🏆 Meilleure So7 — GW en cours</div>
-      <div id="so7-grid"><div class="muted spin" style="grid-column:1/-1;font-size:.75rem;padding:6px">Calcul…</div></div>
+      <div id="so7-grid">
+        <div class="muted spin" style="grid-column:1/-1;font-size:.72rem;padding:4px">Calcul…</div>
+      </div>
       <div id="so7-total"></div>
     </div>
-    <div id="carousel-section">
-      <div class="sec-title">📊 Scores du jour — Roster</div>
-      <div id="carousel-wrap"><div id="carousel-track"></div></div>
-      <div id="cdots"></div>
+
+    <div id="grid-section">
+      <div class="sec-title" id="grid-title">📊 Scores du jour</div>
+      <div id="player-grid"></div>
+      <div id="pgdots"></div>
     </div>
   </div>
 </div>
 
-<!-- ══════════════════ PANNEAU BRASSERIE ══════════════════ -->
+<!-- ══════════════ BRASSERIE ══════════════ -->
 <div class="panel" id="panel-brew">
   <div class="hdr">
     <div>
       <div class="hdr-title">🍺 La Brasserie</div>
       <div class="hdr-sub" id="brew-sub">Chargement…</div>
     </div>
-    <div style="font-size:1.7rem;">🍻</div>
+    <div style="font-size:1.6rem;">🍻</div>
   </div>
 
-  <div id="brew-header-status">
-    <div class="brew-chip" id="brew-chip-ferm">—</div>
-    <div class="brew-chip" id="brew-chip-total">—</div>
+  <div id="brew-status-bar">
+    <div class="bchip" id="bchip-ferm">—</div>
+    <div class="bchip" id="bchip-tot">—</div>
   </div>
 
-  <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;padding:0 22px 14px;">
-    <div id="brew-carousel" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
-      <div id="brew-track-wrap" style="flex:1;overflow:hidden;">
-        <div id="brew-track"></div>
-      </div>
-    </div>
-    <div id="brew-dots"></div>
+  <div id="brew-content">
+    <div id="brew-track"></div>
   </div>
+  <div id="brew-dots"></div>
 </div>
 
 </div><!-- #app -->
 
 <script>
-// ════════════════════════════════════════════════════════
-// CONFIG — adaptez si vos stacks tournent sur des IPs différentes
-// ════════════════════════════════════════════════════════
-const HOST      = window.location.hostname;
-const MLB_API   = `http://${HOST}:8504`;   // FastAPI MLB
-const BREW_API  = `http://${HOST}:8503`;   // FastAPI Brassicole
+// ══════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════
+const HOST     = window.location.hostname;
+const MLB_API  = `http://${HOST}:8504`;
+const BREW_API = `http://${HOST}:8503`;
 
-const MLB_REFRESH  = 60_000;   // ms
-const BREW_REFRESH = 120_000;  // ms
-const CAROUSEL_MS  = 4_200;    // défilement joueurs MLB
-const BREW_SLIDE   = 6_000;    // défilement brassins
+const MLB_REFRESH  = 60_000;
+const BREW_REFRESH = 120_000;
+const GRID_MS      = 5_000;   // rotation page joueurs
+const BREW_MS      = 7_000;   // rotation brassins
 
-// ════════════════════════════════════════════════════════
-// HORLOGE & DATE
-// ════════════════════════════════════════════════════════
-const FR_JOURS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
-const FR_MOIS  = ['janvier','février','mars','avril','mai','juin',
-                  'juillet','août','septembre','octobre','novembre','décembre'];
-const FR_MOIS_COURT = ['jan','fév','mar','avr','mai','juin',
-                       'juil','août','sep','oct','nov','déc'];
+const SLOT_ORDER  = ['SP','RP','C_MI','CI','OF','XH','FLEX'];
+const SLOT_COLORS = {
+  SP:'#388bfd',RP:'#79c0ff',C_MI:'#d2a8ff',
+  CI:'#f0883e',OF:'#3fb950',XH:'#ffa657',FLEX:'#ff7b72'
+};
 
-function frDateFull(){
+// ══════════════════════════════════════════
+// HORLOGE & DATES
+// ══════════════════════════════════════════
+const FR_J  = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+const FR_M  = ['janvier','février','mars','avril','mai','juin',
+               'juillet','août','septembre','octobre','novembre','décembre'];
+const FR_MC = ['jan','fév','mar','avr','mai','juin',
+               'juil','août','sep','oct','nov','déc'];
+
+function frFull(){
   const d=new Date();
-  return `${FR_JOURS[d.getDay()]} ${d.getDate()} ${FR_MOIS[d.getMonth()]} ${d.getFullYear()}`;
+  return `${FR_J[d.getDay()]} ${d.getDate()} ${FR_M[d.getMonth()]} ${d.getFullYear()}`;
 }
-function frDateCourt(iso){
+function frCourt(iso){
   if(!iso) return '—';
   const [,m,d]=iso.split('-');
-  return `${parseInt(d)} ${FR_MOIS_COURT[parseInt(m)-1]}`;
+  return `${parseInt(d)} ${FR_MC[parseInt(m)-1]}`;
 }
 function tick(){
-  const n=new Date();
-  const p=v=>String(v).padStart(2,'0');
-  document.getElementById('clock').textContent=`${p(n.getHours())}:${p(n.getMinutes())}:${p(n.getSeconds())}`;
+  const n=new Date(),p=v=>String(v).padStart(2,'0');
+  document.getElementById('clock').textContent=
+    `${p(n.getHours())}:${p(n.getMinutes())}:${p(n.getSeconds())}`;
 }
 setInterval(tick,1000); tick();
-document.getElementById('mlb-date').textContent = frDateFull();
+document.getElementById('mlb-date').textContent=frFull();
 
-// ════════════════════════════════════════════════════════
-// MLB — fetch + render
-// ════════════════════════════════════════════════════════
-const SLOT_ORDER  = ['SP','RP','C_MI','CI','OF','XH','FLEX'];
-const SLOT_COLORS = {SP:'#388bfd',RP:'#79c0ff',C_MI:'#d2a8ff',
-                     CI:'#f0883e',OF:'#3fb950',XH:'#ffa657',FLEX:'#ff7b72'};
-
+// ══════════════════════════════════════════
+// MLB FETCH
+// ══════════════════════════════════════════
 async function fetchMLB(){
   try{
-    const r = await fetch(`${MLB_API}/api/dashboard`,{cache:'no-store'});
+    const r=await fetch(`${MLB_API}/api/dashboard`,{cache:'no-store'});
     if(!r.ok) throw new Error(`HTTP ${r.status}`);
     renderMLB(await r.json());
   }catch(e){
-    document.getElementById('gw-name').innerHTML=`<span class="err">⚠ API MLB : ${e.message}</span>`;
+    document.getElementById('gw-name').innerHTML=
+      `<span class="err">⚠ API MLB indisponible</span>`;
   }
 }
 
 function renderMLB(d){
-  const gw = d.gameweek;
+  const gw=d.gameweek;
   document.getElementById('gw-name').textContent  = gw.label||'—';
-  document.getElementById('gw-dates').textContent = `${frDateCourt(gw.start_date)} → ${frDateCourt(gw.end_date)} ${new Date(gw.end_date).getFullYear()}`;
-  document.getElementById('gw-prog').textContent  = `J${gw.days_done}/${gw.days_total} · ${gw.days_left} restant(s)`;
-  const tot = gw.team_total||0;
-  const totEl = document.getElementById('gw-tot');
-  totEl.textContent = `${tot>=0?'+':''}${tot.toFixed(1)} pts`;
-  totEl.className   = `gw-score-big ${tot>=0?'pos':'neg'}`;
+  document.getElementById('gw-dates').textContent =
+    `${frCourt(gw.start_date)} → ${frCourt(gw.end_date)} ${new Date(gw.end_date+'T12:00:00').getFullYear()}`;
+  document.getElementById('gw-prog').textContent  =
+    `J${gw.days_done}/${gw.days_total} · ${gw.days_left} restant(s)`;
+  const tot=gw.team_total||0;
+  const te=document.getElementById('gw-tot');
+  te.textContent=`${tot>=0?'+':''}${tot.toFixed(1)} pts`;
+  te.className=`gw-score-big ${tot>=0?'pos':'neg'}`;
   renderSo7(d.so7);
-  renderCarousel(d.players||[]);
+  renderGrid(d.players||[]);
 }
 
+// ══════════════════════════════════════════
+// SO7
+// ══════════════════════════════════════════
 function renderSo7(so7){
   const g=document.getElementById('so7-grid');
   const te=document.getElementById('so7-total');
   if(!so7||so7.error||!so7.lineup){
-    g.innerHTML=`<div class="muted" style="grid-column:1/-1;font-size:.72rem">${so7?.error||'Pas de données So7'}</div>`;
+    g.innerHTML=`<div class="muted" style="grid-column:1/-1;font-size:.7rem">
+      ${so7?.error||'Pas de données So7'}</div>`;
     te.textContent=''; return;
   }
   g.innerHTML='';
   SLOT_ORDER.forEach(slot=>{
     const p=so7.lineup[slot]; if(!p) return;
     const col=SLOT_COLORS[slot]||'#8b949e';
-    const sc=p.total_gw||0; const cl=sc>=0?'pos':'neg';
-    const c=document.createElement('div'); c.className='slot-card';
-    c.innerHTML=`
-      <div class="slot-dot" style="background:${col}"></div>
-      <div class="slot-info">
-        <div class="slot-pos">${p.label}</div>
-        <div class="slot-name">${p.name}</div>
-        <div class="slot-team">${p.team} · ${p.position}</div>
+    const sc=p.total_gw||0;
+    const el=document.createElement('div'); el.className='sc';
+    el.innerHTML=`
+      <div class="sc-dot" style="background:${col}"></div>
+      <div class="sc-info">
+        <div class="sc-pos">${p.label}</div>
+        <div class="sc-name">${p.name}</div>
+        <div class="sc-team">${p.team} · ${p.position}</div>
       </div>
-      <div class="slot-score ${cl}">${sc>=0?'+':''}${sc.toFixed(1)}</div>`;
-    g.appendChild(c);
+      <div class="sc-score ${sc>=0?'pos':'neg'}">${sc>=0?'+':''}${sc.toFixed(1)}</div>`;
+    g.appendChild(el);
   });
   te.textContent=`Total So7 : ${so7.total>=0?'+':''}${so7.total.toFixed(1)} pts`;
   te.style.color=so7.total>=0?'var(--green)':'var(--red)';
 }
 
-// Carousel joueurs
-let cidx=0,ctimer=null,cpages=0;
-const TILES=5;
-function renderCarousel(players){
-  const track=document.getElementById('carousel-track');
-  const dots=document.getElementById('cdots');
-  track.innerHTML=''; dots.innerHTML='';
+// ══════════════════════════════════════════
+// GRILLE JOUEURS — pagination 2 lignes × 5
+// ══════════════════════════════════════════
+let gidx=0,gtimer=null,gPages=[];
+
+function renderGrid(players){
+  const grid=document.getElementById('player-grid');
+  const dots=document.getElementById('pgdots');
+  const title=document.getElementById('grid-title');
+  grid.innerHTML=''; dots.innerHTML='';
   if(!players.length){
-    track.innerHTML='<div class="muted" style="padding:16px">Aucun joueur</div>'; return;
+    grid.innerHTML='<div class="muted" style="padding:20px">Aucun joueur en base.</div>';
+    return;
   }
-  players.forEach((p,i)=>{
-    const tile=document.createElement('div');
-    const rc=i===0?'r1':i===1?'r2':i===2?'r3':'';
-    tile.className=`ptile ${rc}`;
-    const rl=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
-    const bdg=p.role==='pitcher'
-      ?`<span style="background:#21262d;color:var(--blue);border:1px solid var(--blue);border-radius:6px;padding:1px 4px;font-size:.52rem;font-weight:700">P</span>`
-      :`<span style="background:#1f6feb;color:#fff;border-radius:6px;padding:1px 4px;font-size:.52rem;font-weight:700">H</span>`;
-    let sh='';
-    if(p.score_today===null||p.score_today===undefined){
-      sh='<div class="t-dns">— DNS</div>';
-    } else {
-      const sc=p.score_today; sh=`<div class="t-score-day ${sc>=0?'pos':'neg'}">${sc>=0?'+':''}${sc.toFixed(1)}</div>`;
-    }
-    const gv=p.score_gw||0;
-    const gh=gv?`<div class="t-score-gw">GW : ${gv>=0?'+':''}${gv.toFixed(1)}</div>`:'';
-    tile.innerHTML=`
-      <div class="th"><span class="th-pos">${p.position} ${bdg}</span><span class="th-rank">${rl}</span></div>
-      <div class="ti-wrap">
-        <img src="${p.headshot}" alt="${p.name}"
-         onerror="this.src='https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/0/headshot/67/current'"/>
-      </div>
-      <div class="t-name" title="${p.name}">${p.name}</div>
-      <div class="t-team">${p.team}</div>
-      <div class="t-strip">${sh}${gh}</div>`;
-    track.appendChild(tile);
-  });
-  cpages=Math.max(1,players.length-TILES+1);
-  for(let i=0;i<cpages;i++){
+
+  // Tri : actifs (score non null) par score desc, DNS à la fin
+  const actifs = players.filter(p=>p.score_today!==null&&p.score_today!==undefined)
+                         .sort((a,b)=>b.score_today-a.score_today);
+  const dns    = players.filter(p=>p.score_today===null||p.score_today===undefined);
+  const sorted = [...actifs,...dns];
+
+  // Pages de 10 (2 lignes × 5)
+  const PER_PAGE=10;
+  gPages=[];
+  for(let i=0;i<sorted.length;i+=PER_PAGE)
+    gPages.push(sorted.slice(i,i+PER_PAGE));
+
+  // Dots
+  gPages.forEach((_,i)=>{
     const d=document.createElement('div');
-    d.className='cdot'+(i===0?' on':'');
-    d.onclick=()=>goSlide(i); dots.appendChild(d);
-  }
-  cidx=0;
-  if(ctimer) clearInterval(ctimer);
-  ctimer=setInterval(()=>{cidx=(cidx+1)%cpages;applySlide();},CAROUSEL_MS);
-  applySlide();
-}
-function applySlide(){
-  const track=document.getElementById('carousel-track');
-  const tw=track.children[0]?.offsetWidth||0;
-  track.style.transform=`translateX(-${cidx*(tw+8)}px)`;
-  document.querySelectorAll('.cdot').forEach((d,i)=>d.classList.toggle('on',i===cidx));
-}
-function goSlide(i){
-  cidx=i; applySlide();
-  if(ctimer)clearInterval(ctimer);
-  ctimer=setInterval(()=>{cidx=(cidx+1)%cpages;applySlide();},CAROUSEL_MS);
+    d.className='pdot'+(i===0?' on':'');
+    d.onclick=()=>goPage(i);
+    dots.appendChild(d);
+  });
+
+  // Render page 0
+  gidx=0;
+  if(gtimer) clearInterval(gtimer);
+  if(gPages.length>1)
+    gtimer=setInterval(()=>{gidx=(gidx+1)%gPages.length;renderPage(sorted);},GRID_MS);
+  renderPage(sorted);
 }
 
-// ════════════════════════════════════════════════════════
-// BRASSERIE — fetch + render
-// ════════════════════════════════════════════════════════
-let bidx=0,btimer=null,bpages=0;
-let brewCards=[];
+function renderPage(sorted){
+  const grid=document.getElementById('player-grid');
+  grid.innerHTML='';
+  const page=gPages[gidx]||[];
+  document.querySelectorAll('.pdot').forEach((d,i)=>d.classList.toggle('on',i===gidx));
+
+  page.forEach((p,localIdx)=>{
+    const globalIdx=sorted.indexOf(p);
+    const rank=globalIdx+1;
+    const rc=rank===1?'r1':rank===2?'r2':rank===3?'r3':'';
+    const rl=rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':'';
+
+    const sc=p.score_today;
+    const isDns=sc===null||sc===undefined;
+    const scCls=isDns?'dns':sc>=0?'pos':'neg';
+    const scTxt=isDns?'DNS':sc>=0?`+${sc.toFixed(1)}`:`${sc.toFixed(1)}`;
+
+    const gv=p.score_gw||0;
+    const gwHtml=gv!==0?`<div class="pc-score-gw">GW ${gv>=0?'+':''}${gv.toFixed(1)}</div>`:'';
+
+    const bdg=p.role==='pitcher'
+      ?`<span style="background:#21262d;color:var(--blue-l);border:1px solid var(--blue-l);
+         border-radius:4px;padding:0 3px;font-size:.48rem;font-weight:700">P</span>`
+      :`<span style="background:#1f6feb;color:#fff;border-radius:4px;
+         padding:0 3px;font-size:.48rem;font-weight:700">H</span>`;
+
+    const card=document.createElement('div');
+    card.className=`pcard ${rc}`;
+    card.innerHTML=`
+      <div class="pc-top">
+        <span class="pc-pos">${p.position} ${bdg}</span>
+        <span class="pc-rank">${rl}</span>
+      </div>
+      <div class="pc-img">
+        <img src="${p.headshot}" alt="${p.name}"
+          onerror="this.src='https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/0/headshot/67/current'"/>
+      </div>
+      <div class="pc-name" title="${p.name}">${p.name}</div>
+      <div class="pc-score">
+        <div class="pc-score-day ${scCls}">${scTxt}</div>
+        ${gwHtml}
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+function goPage(i){
+  gidx=i;
+  if(gtimer) clearInterval(gtimer);
+  const grid=document.getElementById('player-grid');
+  // Besoin de sorted — on le reconstruit depuis les enfants existants... 
+  // Plus simple : on refetch ou on garde une ref globale
+  renderPage(window._mlbSorted||[]);
+  if(gPages.length>1)
+    gtimer=setInterval(()=>{gidx=(gidx+1)%gPages.length;renderPage(window._mlbSorted||[]);},GRID_MS);
+}
+
+// Wrapper pour garder sorted en global
+const _origRenderGrid=renderGrid;
+window.renderGrid=function(players){
+  const actifs=players.filter(p=>p.score_today!==null&&p.score_today!==undefined)
+                       .sort((a,b)=>b.score_today-a.score_today);
+  const dns=players.filter(p=>p.score_today===null||p.score_today===undefined);
+  window._mlbSorted=[...actifs,...dns];
+  _origRenderGrid(players);
+};
+
+// ══════════════════════════════════════════
+// BRASSERIE
+// ══════════════════════════════════════════
+const ST={
+  fermenting:{lbl:'Fermentation 🟢',css:'s-ferm',icon:'🧪'},
+  ready:     {lbl:'Prêt à embout. ✅',css:'s-ready',icon:'⏳'},
+  bottled:   {lbl:'Refermentation 🔵',css:'s-bottle',icon:'🍾'},
+  done:      {lbl:'Terminé 🟣',css:'s-done',icon:'✅'},
+};
+let bidx=0,btimer=null;
+let _brassins=[];
 
 async function fetchBrew(){
   try{
     const r=await fetch(`${BREW_API}/api/brassins`,{cache:'no-store'});
     if(!r.ok) throw new Error(`HTTP ${r.status}`);
-    const d=await r.json();
-    renderBrew(d);
+    renderBrew(await r.json());
   }catch(e){
-    document.getElementById('brew-sub').innerHTML=`<span class="err">⚠ API Brassicole : ${e.message}</span>`;
-    document.getElementById('brew-track').innerHTML=`
-      <div class="err" style="margin:12px 0">
-        API Brassicole indisponible.<br>
-        Vérifier que le port 8503 est exposé et que api_brassicole.py tourne.
-      </div>`;
+    document.getElementById('brew-sub').innerHTML=
+      `<span class="err">⚠ Brassicole : ${e.message}</span>`;
+    document.getElementById('brew-track').innerHTML=
+      `<div class="err">API Brassicole indisponible (port 8503).</div>`;
   }
 }
-
-const ST_CFG = {
-  fermenting:{lbl:'Fermentation 🟢',css:'s-ferm', icon:'🧪'},
-  ready:      {lbl:'Prêt à embout. ✅',css:'s-ready',icon:'⏳'},
-  bottled:    {lbl:'Refermentation 🔵',css:'s-bottle',icon:'🍾'},
-  done:       {lbl:'Terminé 🟣',css:'s-done',icon:'✅'},
-};
 
 function renderBrew(data){
-  const brassins = data.brassins||[];
-  // Chips header
+  _brassins=data.brassins||[];
   document.getElementById('brew-sub').textContent=
-    `${data.count} brassin(s) · maj ${new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`;
-  document.getElementById('brew-chip-ferm').textContent=
-    `🧪 ${data.actifs} en fermentation`;
-  document.getElementById('brew-chip-total').textContent=
-    `🍺 ${data.count} brassin(s) total`;
+    `${data.count} brassin(s) · ${new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`;
+  document.getElementById('bchip-ferm').textContent=`🧪 ${data.actifs} actif(s)`;
+  document.getElementById('bchip-tot').textContent=`🍺 ${data.count} brassin(s)`;
 
-  const track=document.getElementById('brew-track');
   const dots=document.getElementById('brew-dots');
-  track.innerHTML=''; dots.innerHTML='';
-
-  if(!brassins.length){
-    track.innerHTML='<div class="muted" style="padding:20px;text-align:center">Aucun brassin enregistré dans Brassicole.</div>';
+  dots.innerHTML='';
+  if(!_brassins.length){
+    document.getElementById('brew-track').innerHTML=
+      '<div class="muted" style="padding:20px;text-align:center">Aucun brassin enregistré.</div>';
     return;
   }
-
-  brewCards = brassins;
-  brassins.forEach(b=>{
-    const st  = ST_CFG[b.statut]||ST_CFG.fermenting;
-    const card= document.createElement('div');
-    card.className='bc';
-
-    // Courbe densité
-    let curveHtml='';
-    const hist=b.historique_densites||[];
-    if(hist.length>=2){
-      const vals=hist.map(m=>m.densite).filter(Boolean);
-      const mn=Math.min(...vals); const mx=Math.max(...vals); const rng=mx-mn||0.001;
-      curveHtml=`<div class="dc">
-        ${hist.map((m,i)=>{
-          const h=Math.round(((m.densite-mn)/rng)*28+4);
-          const tip=`${m.date?.slice(5)||''} : ${m.densite?.toFixed(3)||''}`;
-          return `<div class="dc-bar" style="height:${h}px" title="${tip}">
-            ${i===hist.length-1?`<span>${m.densite?.toFixed(3)||''}</span>`:''}
-          </div>`;
-        }).join('')}
-      </div>`;
-    }
-
-    // Barre progression
-    const pct = b.pct_bottle??b.pct_cuve??0;
-    const barRed = b.statut==='bottled';
-
-    // Stats
-    const abv  = b.abv    ? `${b.abv}%`   : '—';
-    const att  = b.attenuation_pct!==null ? `${b.attenuation_pct}%` : '—';
-    const temp = b.derniere_temp  ? `${b.derniere_temp}°C` : '—';
-    const dens = b.derniere_densite ? b.derniere_densite.toFixed(3) : '—';
-
-    card.innerHTML=`
-      <div class="bc-hdr">
-        <div class="bc-icon">${st.icon}</div>
-        <div>
-          <div class="bc-title">${b.nom}</div>
-          <div class="bc-style">${b.levure||''}${b.volume_l?` · ${b.volume_l}L`:''}</div>
-          <div class="bc-date">
-            ${b.date_debut_cuve?`Brassin le ${frDateCourt(b.date_debut_cuve)}`:''}
-            ${b.jours_cuve!==null?` · J+${b.jours_cuve}`:''}
-            ${b.date_fin_cuve?` · fin cuve ${frDateCourt(b.date_fin_cuve)}`:''}
-          </div>
-        </div>
-        <div class="bc-badge ${st.css}">${st.lbl}</div>
-      </div>
-      <div class="bc-body">
-        <div class="bar-wrap">
-          <div class="bar-bg"><div class="bar-fill${barRed?' red':''}" style="width:${pct}%"></div></div>
-          <div class="bar-pct">${pct}%</div>
-        </div>
-        <div class="brew-stats">
-          <div class="bs"><div class="bs-lbl">OG</div>
-            <div class="bs-val">${b.og?b.og.toFixed(3):'—'}</div></div>
-          <div class="bs"><div class="bs-lbl">Densité</div>
-            <div class="bs-val" style="color:var(--blue-l)">${dens}</div></div>
-          <div class="bs"><div class="bs-lbl">ABV est.</div>
-            <div class="bs-val" style="color:var(--amber)">${abv}</div></div>
-          <div class="bs"><div class="bs-lbl">Atténuation</div>
-            <div class="bs-val" style="color:var(--green)">${att}</div></div>
-          <div class="bs"><div class="bs-lbl">Temp.</div>
-            <div class="bs-val" style="color:var(--purple)">${temp}</div></div>
-          <div class="bs"><div class="bs-lbl">FG cible</div>
-            <div class="bs-val">${b.fg_cible?b.fg_cible.toFixed(3):'—'}</div></div>
-          ${b.resucrage_g_per_l?`
-          <div class="bs"><div class="bs-lbl">Resucrage</div>
-            <div class="bs-val">${b.resucrage_g_per_l}g/L</div></div>`:''}
-          ${b.date_embouteillage?`
-          <div class="bs"><div class="bs-lbl">Embouteillage</div>
-            <div class="bs-val" style="font-size:.78rem">${frDateCourt(b.date_embouteillage)}</div></div>`:''}
-        </div>
-        ${curveHtml}
-      </div>`;
-    track.appendChild(card);
+  _brassins.forEach((_,i)=>{
+    const d=document.createElement('div');
+    d.className='pdot'+(i===0?' on':'');
+    d.onclick=()=>goBrew(i); dots.appendChild(d);
   });
+  bidx=0;
+  if(btimer) clearInterval(btimer);
+  if(_brassins.length>1)
+    btimer=setInterval(()=>{bidx=(bidx+1)%_brassins.length;renderBrassin();},BREW_MS);
+  renderBrassin();
+}
 
-  // Dots + défilement auto si plusieurs brassins
-  bpages=brassins.length;
-  if(bpages>1){
-    for(let i=0;i<bpages;i++){
-      const d=document.createElement('div');
-      d.className='cdot'+(i===0?' on':'');
-      d.onclick=()=>goBrewSlide(i); dots.appendChild(d);
-    }
-    bidx=0;
-    if(btimer) clearInterval(btimer);
-    btimer=setInterval(()=>{bidx=(bidx+1)%bpages;applyBrewSlide();},BREW_SLIDE);
-    applyBrewSlide();
+function renderBrassin(){
+  const b=_brassins[bidx]; if(!b) return;
+  const st=ST[b.statut]||ST.fermenting;
+  const pct=b.pct_bottle??b.pct_cuve??0;
+  const abv=b.abv?`${b.abv}%`:'—';
+  const att=b.attenuation_pct!=null?`${b.attenuation_pct}%`:'—';
+  const tmp=b.derniere_temp?`${b.derniere_temp}°C`:'—';
+  const dens=b.derniere_densite?b.derniere_densite.toFixed(3):'—';
+
+  // Courbe densité
+  let curve='';
+  const hist=b.historique_densites||[];
+  if(hist.length>=2){
+    const vals=hist.map(m=>m.densite).filter(Boolean);
+    const mn=Math.min(...vals),mx=Math.max(...vals),rng=mx-mn||.001;
+    curve=`<div class="dc">${hist.map(m=>{
+      const h=Math.round(((m.densite-mn)/rng)*22+4);
+      return `<div class="dc-b" style="height:${h}px" title="${m.date?.slice(5)||''} : ${m.densite?.toFixed(3)||''}"></div>`;
+    }).join('')}</div>`;
   }
+
+  document.getElementById('brew-track').innerHTML=`
+<div class="bc">
+  <div class="bc-hdr">
+    <div class="bc-icon">${st.icon}</div>
+    <div>
+      <div class="bc-title">${b.nom}</div>
+      <div class="bc-meta">${b.levure||''}${b.volume_l?` · ${b.volume_l}L`:''}
+        ${b.date_debut_cuve?` · Brassé le ${frCourt(b.date_debut_cuve)}`:''}
+        ${b.jours_cuve!=null?` · J+${b.jours_cuve}`:''}
+      </div>
+    </div>
+    <div class="bc-badge ${st.css}">${st.lbl}</div>
+  </div>
+  <div class="bc-body">
+    <div class="bar-wrap">
+      <div class="bar-bg">
+        <div class="bar-fill${b.statut==='bottled'?' bottle':''}" style="width:${pct}%"></div>
+      </div>
+      <div class="bar-pct">${pct}%</div>
+    </div>
+    <div class="brew-stats">
+      <div class="bs"><div class="bs-l">OG</div>
+        <div class="bs-v">${b.og?b.og.toFixed(3):'—'}</div></div>
+      <div class="bs"><div class="bs-l">Densité</div>
+        <div class="bs-v" style="color:var(--blue-l)">${dens}</div></div>
+      <div class="bs"><div class="bs-l">FG cible</div>
+        <div class="bs-v">${b.fg_cible?b.fg_cible.toFixed(3):'—'}</div></div>
+      <div class="bs"><div class="bs-l">ABV est.</div>
+        <div class="bs-v" style="color:var(--amber)">${abv}</div></div>
+      <div class="bs"><div class="bs-l">Atténuation</div>
+        <div class="bs-v" style="color:var(--green)">${att}</div></div>
+      <div class="bs"><div class="bs-l">Température</div>
+        <div class="bs-v" style="color:var(--purple)">${tmp}</div></div>
+      ${b.resucrage_g_per_l?`<div class="bs"><div class="bs-l">Resucrage</div>
+        <div class="bs-v">${b.resucrage_g_per_l}g/L</div></div>`:''}
+      ${b.date_fin_cuve?`<div class="bs"><div class="bs-l">Fin cuve</div>
+        <div class="bs-v" style="font-size:.75rem">${frCourt(b.date_fin_cuve)}</div></div>`:''}
+    </div>
+    ${curve}
+  </div>
+</div>`;
+
+  document.querySelectorAll('#brew-dots .pdot')
+    .forEach((d,i)=>d.classList.toggle('on',i===bidx));
 }
 
-function applyBrewSlide(){
-  const track=document.getElementById('brew-track');
-  const ch=track.children[bidx]?.offsetHeight||0;
-  // scroll vertical : afficher la carte bidx
-  const gap=13;
-  let offset=0;
-  for(let i=0;i<bidx;i++){
-    offset+=(track.children[i]?.offsetHeight||0)+gap;
-  }
-  track.style.transform=`translateY(-${offset}px)`;
-  document.querySelectorAll('#brew-dots .cdot').forEach((d,i)=>d.classList.toggle('on',i===bidx));
-}
-function goBrewSlide(i){
-  bidx=i; applyBrewSlide();
-  if(btimer)clearInterval(btimer);
-  btimer=setInterval(()=>{bidx=(bidx+1)%bpages;applyBrewSlide();},BREW_SLIDE);
+function goBrew(i){
+  bidx=i; renderBrassin();
+  if(btimer) clearInterval(btimer);
+  if(_brassins.length>1)
+    btimer=setInterval(()=>{bidx=(bidx+1)%_brassins.length;renderBrassin();},BREW_MS);
 }
 
-// ════════════════════════════════════════════════════════
+// ══════════════════════════════════════════
 // INIT
-// ════════════════════════════════════════════════════════
+// ══════════════════════════════════════════
 fetchMLB();
 fetchBrew();
 setInterval(fetchMLB,  MLB_REFRESH);
 setInterval(fetchBrew, BREW_REFRESH);
-window.addEventListener('resize',()=>{applySlide();applyBrewSlide();});
+window.addEventListener('resize',()=>renderPage(window._mlbSorted||[]));
 </script>
 </body>
 </html>
