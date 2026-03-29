@@ -1,7 +1,7 @@
 """
 api.py — FastAPI mini-API pour le dashboard TV
 Expose les données MLB (So7, scores GW, roster) en JSON.
-Port 8502, même container que Streamlit.
+Port 8504 (8501=Streamlit, 8502=Brassicole Streamlit, 8503=Brassicole API).
 """
 
 from fastapi import FastAPI
@@ -124,4 +124,4 @@ def health():
 if __name__ == "__main__":
     import uvicorn
     db.init_db()
-    uvicorn.run(app, host="0.0.0.0", port=8502, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8504, log_level="info")
