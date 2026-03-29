@@ -11,7 +11,7 @@ services:
 
     ports:
       - "8501:8501"    # Streamlit  → http://ton-ip:8501
-      - "8502:8502"    # FastAPI    → http://ton-ip:8502/api/dashboard
+      - "8504:8504"    # FastAPI MLB → http://ton-ip:8504/api/dashboard
 
     volumes:
       - sorare_mlb_data:/data
@@ -43,7 +43,7 @@ services:
       - sorare-mlb
 
     ports:
-      - "8080:80"      # Dashboard TV → http://ton-ip:8080
+      - "8888:80"      # Dashboard TV → http://ton-ip:8888
 
     volumes:
       - ./dashboard/index.html:/usr/share/nginx/html/index.html:ro
