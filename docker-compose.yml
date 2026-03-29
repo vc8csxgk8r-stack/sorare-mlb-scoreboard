@@ -1,8 +1,6 @@
 version: "3.9"
 
 services:
-
-  # ── App principale Streamlit + API FastAPI ─────────────────────────────────
   sorare-mlb:
     build: .
     image: sorare-mlb-scoreboard:latest
@@ -10,8 +8,8 @@ services:
     restart: unless-stopped
 
     ports:
-      - "8501:8501"    # Streamlit  → http://ton-ip:8501
-      - "8504:8504"    # FastAPI MLB → http://ton-ip:8504/api/dashboard
+      - "8501:8501"    # Streamlit     → http://ton-ip:8501
+      - "8504:8504"    # Dashboard TV  → http://ton-ip:8504
 
     volumes:
       - sorare_mlb_data:/data
@@ -33,27 +31,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
-  # ── Dashboard TV (HTML statique Nginx) ─────────────────────────────────────
-  dashboard-tv:
-    image: nginx:alpine
-    container_name: sorare-dashboard-tv
-    restart: unless-stopped
-    depends_on:
-      - sorare-mlb
-
-    ports:
-      - "8888:80"      # Dashboard TV → http://ton-ip:8888
-
-    volumes:
-      - ./dashboard/index.html:/usr/share/nginx/html/index.html:ro
-      - ./dashboard/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "5m"
-        max-file: "2"
 
 volumes:
   sorare_mlb_data:
