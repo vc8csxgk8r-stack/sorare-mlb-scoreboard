@@ -76,33 +76,23 @@ def get_eligible_slots(position: str, role: str = "") -> list[str]:
 
 def compute_gameweek_scores(start_date: str, end_date: str) -> list[dict]:
     """
-    Pour chaque joueur du roster, cumule ses scores sur la plage de dates.
-    Le rôle est lu depuis les scores DB (détecté par le fetcher MLB)
-    plutôt que depuis le roster (peut être mal défini à l'ajout).
+    Cumule les scores sur la plage de dates.
+    Rôle pris depuis le roster (source de vérité, mis à jour par sync.py).
     """
     roster = db.get_roster()
     result = []
 
     for player in roster:
-        pid = player["player_id"]
-        scores = db.get_scores_range(pid, start_date, end_date)
+        pid      = player["player_id"]
+        role     = player.get("role", "hitter")
+        position = player.get("position", "?")
 
+        scores = db.get_scores_range(pid, start_date, end_date)
         played = [s for s in scores if s.get("total") is not None]
-        total_gw     = sum(s["total"] for s in played)
+
+        total_gw     = round(sum(s["total"] for s in played), 2)
         games_played = len(played)
         days_detail  = {s["date"]: s.get("total") for s in scores}
-
-        # Priorité : rôle détecté par le fetcher MLB dans les scores (plus fiable)
-        # Fallback : rôle défini dans le roster
-        detected_roles = [s["role"] for s in played if s.get("role")]
-        if detected_roles:
-            # Si au moins une sortie en pitcher → on le considère pitcher
-            role = "pitcher" if "pitcher" in detected_roles else "hitter"
-        else:
-            role = player.get("role", "hitter")
-
-        # Position : préférer celle du roster (la position MLB officielle)
-        position = player.get("position", "?")
 
         result.append({
             "player_id":      pid,
@@ -110,7 +100,7 @@ def compute_gameweek_scores(start_date: str, end_date: str) -> list[dict]:
             "position":       position,
             "role":           role,
             "team":           player.get("team", ""),
-            "total_gw":       round(total_gw, 2),
+            "total_gw":       total_gw,
             "games_played":   games_played,
             "days":           days_detail,
             "eligible_slots": get_eligible_slots(position, role),

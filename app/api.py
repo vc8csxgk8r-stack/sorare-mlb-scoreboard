@@ -52,9 +52,8 @@ def get_dashboard():
     gw_by_player = {}
     for p in roster:
         pid = p["player_id"]
-        sc_list = db.get_scores_range(
-            pid, cur_gw["start_date"], min(today, gw_end).isoformat()
-        )
+        range_end = min(today, gw_end).isoformat()
+        sc_list = db.get_scores_range(pid, cur_gw["start_date"], range_end)
         gw_by_player[pid] = round(
             sum(s["total"] for s in sc_list if s.get("total") is not None), 2
         )

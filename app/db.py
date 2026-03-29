@@ -161,9 +161,12 @@ def get_scores_for_date(date: str) -> list[dict]:
 def get_scores_range(player_id: int, start: str, end: str) -> list[dict]:
     with _conn() as con:
         rows = con.execute("""
-            SELECT * FROM scores
-            WHERE player_id=? AND date BETWEEN ? AND ?
-            ORDER BY date DESC
+            SELECT s.*,
+                   COALESCE(s.role, r.role) as role
+            FROM scores s
+            JOIN roster r ON s.player_id = r.player_id
+            WHERE s.player_id=? AND s.date BETWEEN ? AND ?
+            ORDER BY s.date DESC
         """, (player_id, start, end)).fetchall()
     result = []
     for r in rows:
