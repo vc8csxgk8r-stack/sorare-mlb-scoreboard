@@ -131,7 +131,11 @@ def upsert_score(player_id: int, date: str, game_pk: int | None,
 
 
 def upsert_no_game(player_id: int, date: str):
-    """Enregistre qu'un joueur n'a pas joué (évite de re-fetcher)."""
+    """
+    Enregistre qu'un joueur n'a pas joué ce jour.
+    ON CONFLICT DO NOTHING → si un vrai score existe déjà, on ne l'écrase pas.
+    Si l'entrée existante est aussi un no_game (total NULL), on ne touche rien.
+    """
     with _conn() as con:
         con.execute("""
             INSERT INTO scores(player_id, date, game_pk, role, total, breakdown, raw_stats)
@@ -191,12 +195,25 @@ def get_all_dates_with_scores() -> list[str]:
 
 
 def is_date_synced(date: str) -> bool:
-    """Retourne True si tous les joueurs du roster ont un enregistrement pour cette date."""
+    """
+    Retourne True si tous les joueurs du roster ont un enregistrement pour cette date.
+    Les pitchers avec total=NULL sont re-fetchés (ils peuvent avoir pitché depuis).
+    """
     with _conn() as con:
         roster_count = con.execute("SELECT COUNT(*) FROM roster").fetchone()[0]
         if roster_count == 0:
             return False
+        # Vérifie que tous les joueurs ont une entrée
         synced_count = con.execute(
             "SELECT COUNT(*) FROM scores WHERE date=?", (date,)
         ).fetchone()[0]
-    return synced_count >= roster_count
+        if synced_count < roster_count:
+            return False
+        # Si des pitchers ont total=NULL, pas encore considéré synchro
+        # (ils pitchent rarement, on re-vérifie toujours)
+        null_pitchers = con.execute("""
+            SELECT COUNT(*) FROM scores s
+            JOIN roster r ON s.player_id = r.player_id
+            WHERE s.date=? AND s.total IS NULL AND r.role='pitcher'
+        """, (date,)).fetchone()[0]
+        return null_pitchers == 0

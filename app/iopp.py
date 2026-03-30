@@ -33,7 +33,8 @@ def _get_season_stats(player_id: int, season: int, group: str) -> dict:
         r = SESSION.get(url, params={
             "stats":  "season",
             "season": season,
-            "group":  group,       # "hitting" ou "pitching"
+            "group":  group,
+            # hydrate permet d'avoir gamesPlayed et gamesPitched
         }, timeout=10)
         r.raise_for_status()
         data = r.json()
@@ -43,6 +44,18 @@ def _get_season_stats(player_id: int, season: int, group: str) -> dict:
     except Exception as e:
         logger.warning(f"[iopp] Stats {season} {group} pour {player_id}: {e}")
     return {}
+
+
+def _games_for_pitcher(raw: dict) -> int:
+    """
+    Retourne le nombre de matchs effectifs d'un pitcher.
+    Priorité : gamesPitched > gamesStarted > gamesPlayed.
+    """
+    gp = raw.get("gamesPitched") or raw.get("gamesStarted") or raw.get("gamesPlayed") or 0
+    try:
+        return int(gp)
+    except (ValueError, TypeError):
+        return 0
 
 
 def _stats_to_sorare_score_hitter(raw: dict, games: int) -> float:
@@ -83,17 +96,23 @@ def _stats_to_sorare_score_pitcher(raw: dict, games: int) -> float:
         ip_tot = int(parts[0]) + (int(parts[1]) if len(parts) > 1 else 0) / 3
     except Exception:
         ip_tot = 0.0
+
+    # Si 0 innings, on essaie quand même avec les autres stats
+    if ip_tot == 0 and games > 0:
+        # Pas de stats pitching valides
+        return 0.0
+
     per_game = {
         "role":            "pitcher",
         "innings_pitched": ip_tot / games,
-        "strikeouts":      raw.get("strikeOuts", 0)     / games,
-        "walks":           raw.get("baseOnBalls", 0)    / games,
-        "hits_allowed":    raw.get("hits", 0)           / games,
-        "earned_runs":     raw.get("earnedRuns", 0)     / games,
-        "hit_batsmen":     raw.get("hitBatsmen", 0)     / games,
-        "wins":            raw.get("wins", 0)           / games,
-        "saves":           raw.get("saves", 0)          / games,
-        "holds":           raw.get("holds", 0)          / games,
+        "strikeouts":      raw.get("strikeOuts", 0)    / games,
+        "walks":           raw.get("baseOnBalls", 0)   / games,
+        "hits_allowed":    raw.get("hits", 0)          / games,
+        "earned_runs":     raw.get("earnedRuns", 0)    / games,
+        "hit_batsmen":     raw.get("hitBatsmen", 0)    / games,
+        "wins":            raw.get("wins", 0)          / games,
+        "saves":           raw.get("saves", 0)         / games,
+        "holds":           raw.get("holds", 0)         / games,
     }
     return sorare_scoring.compute_score(per_game)["total"]
 
@@ -101,15 +120,13 @@ def _stats_to_sorare_score_pitcher(raw: dict, games: int) -> float:
 def compute_iopp(player_id: int, role: str, position: str) -> dict:
     """
     Calcule l'IOPP d'un joueur :
-      - L15_2026 : moyenne des 15 dernières performances Sorare en DB (saison en cours)
+      - L15_2026 : moyenne des 15 dernières performances Sorare en DB
       - avg_2025  : moyenne Sorare recalculée depuis les stats agrégées 2025
-      - trend     : delta L15_2026 - avg_2025
-      - status    : "🔥 Surperformance" / "❄️ Sous-performance" / "➡️ Dans la norme"
-
-    Seuil : ±15% par rapport à la moyenne 2025 → sur/sous performance.
+      - status    : Surperformance / Sous-performance / Dans la norme
     """
     # ── L15 2026 depuis la DB ──────────────────────────────────────────────────
-    today     = datetime.date.today().isoformat()
+    import zoneinfo
+    today      = datetime.datetime.now(tz=zoneinfo.ZoneInfo("Europe/Paris")).date().isoformat()
     all_scores = db.get_scores_range(player_id, "2026-01-01", today)
     played     = [s for s in all_scores if s.get("total") is not None]
     last_15    = played[-L_WINDOW:] if len(played) >= 1 else played
@@ -120,14 +137,20 @@ def compute_iopp(player_id: int, role: str, position: str) -> dict:
     is_pitcher = role == "pitcher"
     group_2025 = "pitching" if is_pitcher else "hitting"
     raw_2025   = _get_season_stats(player_id, 2025, group_2025)
-    games_2025 = raw_2025.get("gamesPlayed", 0)
 
     if is_pitcher:
-        avg_2025 = _stats_to_sorare_score_pitcher(raw_2025, games_2025)
+        games_2025 = _games_for_pitcher(raw_2025)
+        avg_2025   = _stats_to_sorare_score_pitcher(raw_2025, games_2025)
     else:
-        avg_2025 = _stats_to_sorare_score_hitter(raw_2025, games_2025)
+        games_2025 = int(raw_2025.get("gamesPlayed") or 0)
+        avg_2025   = _stats_to_sorare_score_hitter(raw_2025, games_2025)
 
-    avg_2025 = round(avg_2025, 2) if avg_2025 else None
+    # Arrondi — None si 0
+    avg_2025 = round(avg_2025, 2) if avg_2025 and avg_2025 > 0 else None
+
+    # Log pour debug
+    logger.info(f"[iopp] player={player_id} role={role} "
+                f"l15={l15_avg}({l15_games}G) avg2025={avg_2025}({games_2025}G)")
 
     # ── Tendance ──────────────────────────────────────────────────────────────
     if l15_avg is not None and avg_2025 and avg_2025 > 0:
@@ -142,21 +165,24 @@ def compute_iopp(player_id: int, role: str, position: str) -> dict:
         else:
             status = "➡️ Dans la norme"
             status_color = "#8b949e"
+    elif l15_avg is None:
+        delta = None; pct = None
+        status = "📭 Pas de matchs 2026"
+        status_color = "#8b949e"
     else:
-        delta        = None
-        pct          = None
-        status       = "❓ Données insuffisantes"
+        delta = None; pct = None
+        status = "📊 Pas de stats 2025"
         status_color = "#8b949e"
 
     return {
-        "player_id":   player_id,
-        "l15_avg":     l15_avg,
-        "l15_games":   l15_games,
-        "avg_2025":    avg_2025,
-        "games_2025":  games_2025,
-        "delta":       round(delta, 2) if delta is not None else None,
-        "pct":         round(pct, 1)   if pct   is not None else None,
-        "status":      status,
+        "player_id":    player_id,
+        "l15_avg":      l15_avg,
+        "l15_games":    l15_games,
+        "avg_2025":     avg_2025,
+        "games_2025":   games_2025,
+        "delta":        round(delta, 2) if delta is not None else None,
+        "pct":          round(pct, 1)   if pct   is not None else None,
+        "status":       status,
         "status_color": status_color,
     }
 

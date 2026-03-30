@@ -116,8 +116,9 @@ def sync_date(date: datetime.date, force: bool = False) -> dict:
 def sync_last_n_days(n: int = 7, force: bool = False) -> list[dict]:
     """Synchronise les N derniers jours (utile au premier démarrage)."""
     results = []
-    today = datetime.date.today()
-    for i in range(1, n + 1):          # commence hier, remonte
+    import zoneinfo
+    today = datetime.datetime.now(tz=zoneinfo.ZoneInfo("Europe/Paris")).date()
+    for i in range(1, n + 1):
         d = today - datetime.timedelta(days=i)
         r = sync_date(d, force=force)
         r["date"] = d.isoformat()
@@ -130,7 +131,7 @@ _scheduler = None
 
 
 def start_scheduler():
-    """Lance le scheduler : synchro auto toutes les heures, 24h/24."""
+    """Lance le scheduler : synchro auto toutes les heures, timezone Europe/Paris."""
     global _scheduler
     try:
         from apscheduler.schedulers.background import BackgroundScheduler
@@ -144,11 +145,9 @@ def start_scheduler():
         logger.info("[scheduler] Déjà en cours.")
         return
 
-    tz = pytz.timezone("America/New_York")
+    tz = pytz.timezone("Europe/Paris")
     _scheduler = BackgroundScheduler(timezone=tz)
 
-    # Premier run dans 30 secondes (laisse le temps au container de démarrer)
-    # puis toutes les heures
     first_run = datetime.datetime.now(tz) + datetime.timedelta(seconds=30)
 
     _scheduler.add_job(
@@ -160,7 +159,7 @@ def start_scheduler():
         next_run_time=first_run,
     )
     _scheduler.start()
-    logger.info(f"[scheduler] Démarré — premier run dans 30s, puis toutes les heures (ET)")
+    logger.info(f"[scheduler] Démarré — Europe/Paris, premier run dans 30s, puis toutes les heures")
 
 
 def stop_scheduler():
@@ -171,14 +170,14 @@ def stop_scheduler():
 
 
 def _auto_sync_job():
-    """Job automatique toutes les heures : synchro d'aujourd'hui et d'hier."""
-    import pytz
-    tz    = pytz.timezone("America/New_York")
+    """Job automatique toutes les heures : synchro d'aujourd'hui et d'hier (Europe/Paris)."""
+    import zoneinfo
+    tz    = zoneinfo.ZoneInfo("Europe/Paris")
     now   = datetime.datetime.now(tz)
     today = now.date()
     yesterday = today - datetime.timedelta(days=1)
 
-    logger.info(f"[auto_sync] Lancement — {now.strftime('%H:%M ET')} "
+    logger.info(f"[auto_sync] Lancement — {now.strftime('%H:%M Europe/Paris')} "
                 f"(today={today}, yesterday={yesterday})")
 
     for d in [today, yesterday]:
