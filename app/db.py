@@ -143,7 +143,11 @@ def upsert_no_game(player_id: int, date: str):
 def get_scores_for_date(date: str) -> list[dict]:
     with _conn() as con:
         rows = con.execute("""
-            SELECT s.*, r.name as player_name, r.position, r.team
+            SELECT s.*,
+                   r.name  AS player_name,
+                   r.position,
+                   r.team,
+                   COALESCE(s.role, r.role) AS role
             FROM scores s
             JOIN roster r ON s.player_id = r.player_id
             WHERE s.date = ?
@@ -153,7 +157,7 @@ def get_scores_for_date(date: str) -> list[dict]:
     for r in rows:
         d = dict(r)
         d["breakdown"] = json.loads(d.get("breakdown") or "{}")
-        d["raw_stats"] = json.loads(d.get("raw_stats") or "{}")
+        d["raw_stats"]  = json.loads(d.get("raw_stats")  or "{}")
         result.append(d)
     return result
 

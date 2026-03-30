@@ -135,25 +135,32 @@ def start_scheduler():
     try:
         from apscheduler.schedulers.background import BackgroundScheduler
         from apscheduler.triggers.interval import IntervalTrigger
+        import pytz
     except ImportError:
-        logger.warning("[scheduler] APScheduler non installé, synchro auto désactivée.")
+        logger.warning("[scheduler] APScheduler/pytz non installé, synchro auto désactivée.")
         return
 
     if _scheduler and _scheduler.running:
+        logger.info("[scheduler] Déjà en cours.")
         return
 
-    _scheduler = BackgroundScheduler(timezone="America/New_York")
-    # Toutes les heures, 24h/24
+    tz = pytz.timezone("America/New_York")
+    _scheduler = BackgroundScheduler(timezone=tz)
+
+    # Premier run dans 30 secondes (laisse le temps au container de démarrer)
+    # puis toutes les heures
+    first_run = datetime.datetime.now(tz) + datetime.timedelta(seconds=30)
+
     _scheduler.add_job(
         _auto_sync_job,
-        IntervalTrigger(hours=1),
+        IntervalTrigger(hours=1, timezone=tz),
         id="mlb_sync_hourly",
         replace_existing=True,
         max_instances=1,
-        next_run_time=datetime.datetime.now(),   # ← premier run immédiat au démarrage
+        next_run_time=first_run,
     )
     _scheduler.start()
-    logger.info("[scheduler] Démarré : synchro toutes les heures (ET), premier run immédiat")
+    logger.info(f"[scheduler] Démarré — premier run dans 30s, puis toutes les heures (ET)")
 
 
 def stop_scheduler():
@@ -165,11 +172,24 @@ def stop_scheduler():
 
 def _auto_sync_job():
     """Job automatique toutes les heures : synchro d'aujourd'hui et d'hier."""
-    today = datetime.date.today()
+    import pytz
+    tz    = pytz.timezone("America/New_York")
+    now   = datetime.datetime.now(tz)
+    today = now.date()
     yesterday = today - datetime.timedelta(days=1)
+
+    logger.info(f"[auto_sync] Lancement — {now.strftime('%H:%M ET')} "
+                f"(today={today}, yesterday={yesterday})")
+
     for d in [today, yesterday]:
         try:
-            sync_date(d, force=False)
-            logger.info(f"[auto_sync] {d} OK")
+            r = sync_date(d, force=False)
+            if r.get("cached"):
+                logger.info(f"[auto_sync] {d} : déjà synchro, skip")
+            else:
+                logger.info(f"[auto_sync] {d} : "
+                            f"{r.get('synced',0)} synchro, "
+                            f"{r.get('no_game',0)} DNS, "
+                            f"{r.get('errors',0)} erreurs")
         except Exception as e:
             logger.error(f"[auto_sync] Erreur pour {d}: {e}")
