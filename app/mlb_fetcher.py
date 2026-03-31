@@ -42,19 +42,24 @@ def search_player(name: str) -> list[dict]:
 
 # ─── Matchs d'un jour ─────────────────────────────────────────────────────────
 def get_game_ids_for_date(date: datetime.date) -> list[int]:
-    """Retourne les IDs de matchs MLB pour une date donnée."""
+    """
+    Retourne les IDs de matchs MLB pour une date donnée.
+    Inclut les matchs terminés (Final) ET en cours (Live) pour ne pas
+    manquer un SP qui pitche tard.
+    """
     date_str = date.strftime("%Y-%m-%d")
     data = _get("/schedule", {
         "sportId": 1,
         "date": date_str,
-        "gameType": "R,F,D,L,W",   # Regular + playoffs
+        "gameType": "R,F,D,L,W",
         "fields": "dates,games,gamePk,status,abstractGameState",
     })
     ids = []
     for d in data.get("dates", []):
         for g in d.get("games", []):
-            # On ne prend que les matchs terminés
-            if g.get("status", {}).get("abstractGameState") == "Final":
+            state = g.get("status", {}).get("abstractGameState", "")
+            # Final = match terminé, Live = match en cours (stats disponibles)
+            if state in ("Final", "Live"):
                 ids.append(g["gamePk"])
     return ids
 
@@ -90,9 +95,17 @@ def get_player_stats_for_date(player_id: int, date: datetime.date) -> dict | Non
             stats = p.get("stats", {})
             position = p.get("position", {}).get("abbreviation", "")
 
-            # Pitcher
-            if "pitching" in stats and stats["pitching"].get("inningsPitched") is not None:
-                raw = stats["pitching"]
+            # Pitcher — doit avoir des stats pitching avec des IP > 0
+            pitching_stats = stats.get("pitching", {})
+            ip_raw = pitching_stats.get("inningsPitched")
+            ip_val = _parse_ip(ip_raw) if ip_raw is not None else 0.0
+            is_pitcher_pos = position.upper() in {"SP", "RP", "CL", "P"}
+
+            # Traiter comme pitcher si :
+            # - il a des stats pitching avec IP >= 0 ET position pitcher
+            # - OU il a des IP > 0 peu importe la position (two-way player)
+            if pitching_stats and ip_raw is not None and (ip_val > 0 or is_pitcher_pos):
+                raw = pitching_stats
                 return {
                     "player_id": player_id,
                     "name": p.get("person", {}).get("fullName", str(player_id)),
@@ -100,8 +113,7 @@ def get_player_stats_for_date(player_id: int, date: datetime.date) -> dict | Non
                     "game_pk": gid,
                     "role": "pitcher",
                     "position": position,
-                    # Stats pitching
-                    "innings_pitched": _parse_ip(raw.get("inningsPitched", "0")),
+                    "innings_pitched": ip_val,
                     "strikeouts": raw.get("strikeOuts", 0),
                     "walks": raw.get("baseOnBalls", 0),
                     "hits_allowed": raw.get("hits", 0),

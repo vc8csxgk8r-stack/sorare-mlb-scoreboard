@@ -60,6 +60,11 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_scores_player   ON scores(player_id);
         """)
     logger.info(f"DB initialisée : {DB_PATH}")
+    # Corriger les rôles mal définis à l'ajout (ex: SP ajouté comme hitter)
+    try:
+        fix_roster_roles()
+    except Exception:
+        pass  # Table roster peut ne pas encore exister au tout premier démarrage
 
 
 # ─── GAMEWEEKS ────────────────────────────────────────────────────────────────
@@ -109,6 +114,27 @@ def get_roster() -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def fix_roster_roles():
+    """
+    Corrige automatiquement les rôles du roster selon la position MLB.
+    SP/RP/CL/P/TWP → pitcher, tout le reste → hitter.
+    Appelée au démarrage pour réparer les joueurs mal catégorisés à l'ajout.
+    """
+    PITCHER_POS = {"SP", "RP", "CL", "P", "TWP"}
+    with _conn() as con:
+        players = con.execute("SELECT player_id, position, role FROM roster").fetchall()
+        fixed = 0
+        for p in players:
+            pos = (p["position"] or "").upper()
+            expected = "pitcher" if pos in PITCHER_POS else "hitter"
+            if expected != p["role"]:
+                con.execute("UPDATE roster SET role=? WHERE player_id=?",
+                            (expected, p["player_id"]))
+                fixed += 1
+        if fixed:
+            logger.info(f"[fix_roles] {fixed} rôle(s) corrigé(s) dans le roster")
+
+
 def update_player_role(player_id: int, role: str):
     with _conn() as con:
         con.execute("UPDATE roster SET role=? WHERE player_id=?", (role, player_id))
@@ -148,9 +174,9 @@ def get_scores_for_date(date: str) -> list[dict]:
     with _conn() as con:
         rows = con.execute("""
             SELECT s.*,
-                   r.name  AS player_name,
-                   r.position,
-                   r.team,
+                   r.name     AS player_name,
+                   r.position AS position,
+                   r.team     AS team,
                    COALESCE(s.role, r.role) AS role
             FROM scores s
             JOIN roster r ON s.player_id = r.player_id
@@ -170,7 +196,7 @@ def get_scores_range(player_id: int, start: str, end: str) -> list[dict]:
     with _conn() as con:
         rows = con.execute("""
             SELECT s.*,
-                   COALESCE(s.role, r.role) as role
+                   r.role AS role    -- rôle du roster, toujours à jour
             FROM scores s
             JOIN roster r ON s.player_id = r.player_id
             WHERE s.player_id=? AND s.date BETWEEN ? AND ?

@@ -66,9 +66,19 @@ def sync_date(date: datetime.date, force: bool = False) -> dict:
 
         total = len(roster)
         for i, player in enumerate(roster):
-            pid   = player["player_id"]
-            name  = player["name"]
+            pid      = player["player_id"]
+            name     = player["name"]
+            position = player.get("position", "").upper()
             _notify(i, total, f"⏳ {name}…")
+
+            # ── Correction rôle basée sur la position MLB ──────────────────────
+            # Exhaustif : toutes les abréviations pitcher possibles dans l'API MLB
+            PITCHER_POSITIONS = {"SP", "RP", "CL", "P", "TWP", "LHP", "RHP"}
+            expected_role = "pitcher" if position in PITCHER_POSITIONS else "hitter"
+            if expected_role != player.get("role", "hitter"):
+                db.update_player_role(pid, expected_role)
+                player["role"] = expected_role
+                logger.info(f"[sync] Rôle corrigé pour {name} ({position}): {expected_role}")
 
             if not game_ids:
                 # Pas de matchs ce jour — on enregistre quand même pour ne pas re-fetcher
@@ -85,20 +95,24 @@ def sync_date(date: datetime.date, force: bool = False) -> dict:
                     continue
 
                 scored = compute_score(stats)
+                detected_role = stats.get("role", "hitter")
+
                 db.upsert_score(
                     player_id=pid,
                     date=date_str,
                     game_pk=stats.get("game_pk"),
-                    role=stats.get("role", "hitter"),
+                    role=detected_role,
                     total=scored["total"],
                     breakdown=scored["breakdown"],
                     raw_stats=stats,
                 )
-                # Mettre à jour le rôle dans le roster si le fetcher l'a détecté
-                detected_role = stats.get("role", "")
-                if detected_role and detected_role != player.get("role", ""):
+
+                # Corriger le rôle dans le roster si mal détecté à l'ajout
+                if detected_role != player.get("role", "hitter"):
                     db.update_player_role(pid, detected_role)
-                    logger.info(f"[sync] Rôle mis à jour pour {name}: {detected_role}")
+                    logger.info(f"[sync] Rôle corrigé pour {name}: "
+                                f"{player.get('role')} → {detected_role}")
+
                 result["synced"] += 1
                 logger.info(f"[sync] {name} : {scored['total']} pts le {date_str}")
 
