@@ -3,29 +3,24 @@ version: "3.9"
 services:
   sorare-mlb:
     build: .
-    image: sorare-mlb-scoreboard:latest
+    image: sorare-mlb-v2:latest
     container_name: sorare-mlb
     restart: unless-stopped
-
     ports:
-      - "8501:8501"    # Streamlit     → http://ton-ip:8501
-      - "8504:8504"    # Dashboard TV  → http://ton-ip:8504
-
+      - "8501:8501"   # Streamlit → http://ton-ip:8501
+      - "8504:8504"   # Dashboard TV → http://ton-ip:8504
     volumes:
       - sorare_mlb_data:/data
-
     environment:
       - DB_PATH=/data/sorare_mlb.db
       - TZ=Europe/Paris
       - PYTHONUNBUFFERED=1
-
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 25s
-
     logging:
       driver: "json-file"
       options:
