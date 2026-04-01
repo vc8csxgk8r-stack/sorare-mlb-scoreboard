@@ -31,11 +31,23 @@ def fmt(d): # 26 mar
 st.markdown("""
 <style>
 [data-testid="stSidebar"] { background:#0d1117; }
-.block-container { padding-top:.8rem; }
 
-/* Cartes joueurs */
-.pc{background:#161b22;border:2px solid #30363d;border-radius:9px;
-  overflow:hidden;text-align:center;transition:border-color .15s;}
+/* Éviter que le header Streamlit rogne le contenu */
+.block-container { padding-top:1.5rem !important; padding-bottom:1rem; }
+header[data-testid="stHeader"] { background:rgba(13,17,23,.95); }
+
+/* Cartes joueurs — taille fixe pour que le score soit toujours visible */
+.pc {
+  background:#161b22;
+  border:2px solid #30363d;
+  border-radius:9px;
+  overflow:hidden;
+  text-align:center;
+  transition:border-color .15s;
+  display:flex;
+  flex-direction:column;
+  min-height:165px;   /* hauteur minimale garantie */
+}
 .pc:hover{border-color:#388bfd;}
 .pc.r1{border-color:#f1c40f;box-shadow:0 0 8px #f1c40f33;}
 .pc.r2{border-color:#95a5a6;}
@@ -44,8 +56,8 @@ st.markdown("""
 .pc.rp{border-color:#79c0ff55;}
 .pc.dns{opacity:.45;}
 
-.pc-top{display:flex;justify-content:space-between;align-items:center;
-  padding:2px 6px;background:rgba(0,0,0,.4);}
+.pc-top{flex-shrink:0;display:flex;justify-content:space-between;align-items:center;
+  padding:3px 6px;background:rgba(0,0,0,.4);}
 .pc-pos{font-size:.55rem;font-weight:700;color:#8b949e;}
 .pc-rnk{font-size:.58rem;font-weight:800;color:#f1c40f;}
 .p-tag{font-size:.48rem;font-weight:800;padding:0 3px;border-radius:3px;
@@ -53,27 +65,35 @@ st.markdown("""
 .h-tag{font-size:.48rem;font-weight:800;padding:0 3px;border-radius:3px;
   background:#1f6feb;color:#fff;}
 
-.pc-img{background:linear-gradient(180deg,#1a2030,#111820);
+/* Photo — hauteur fixe */
+.pc-img{flex-shrink:0;background:linear-gradient(180deg,#1a2030,#111820);
   display:flex;align-items:flex-end;justify-content:center;
-  height:85px;overflow:hidden;padding:4px 2px 0;}
-.pc-img img{width:75px;height:78px;object-fit:cover;
+  height:80px;overflow:hidden;padding:4px 2px 0;}
+.pc-img img{width:72px;height:76px;object-fit:cover;
   object-position:top;border-radius:4px 4px 0 0;}
 
-.pc-name{font-size:.65rem;font-weight:700;padding:3px 4px 1px;
+.pc-name{flex-shrink:0;font-size:.65rem;font-weight:700;padding:3px 4px 1px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
-.pc-score{background:#0a0e14;border-top:1px solid #30363d;padding:4px 3px 5px;}
-.sv{font-size:1.05rem;font-weight:900;line-height:1;}
+/* Score — toujours visible, ne se fait pas rogner */
+.pc-score{
+  flex-shrink:0;
+  background:#0a0e14;
+  border-top:1px solid #30363d;
+  padding:5px 4px 6px;
+}
+.sv{font-size:1.05rem;font-weight:900;line-height:1.1;}
 .sv.pos{color:#3fb950;} .sv.neg{color:#f85149;} .sv.dns{color:#8b949e;font-size:.7rem;}
-.sg{font-size:.55rem;color:#79c0ff;font-weight:700;margin-top:1px;}
+.sg{font-size:.55rem;color:#79c0ff;font-weight:700;margin-top:2px;}
 
 /* Séparateur rôle */
-.rsep{display:flex;align-items:center;gap:8px;margin:10px 0 6px;
+.rsep{display:flex;align-items:center;gap:8px;margin:12px 0 7px;
   font-size:.6rem;font-weight:800;color:#8b949e;text-transform:uppercase;letter-spacing:.1em;}
 .rsep::before,.rsep::after{content:'';flex:1;height:1px;background:#30363d;}
 
 /* Pills */
-.pills{display:flex;flex-wrap:wrap;gap:2px;justify-content:center;padding:2px 3px 3px;}
+.pills{flex-shrink:0;display:flex;flex-wrap:wrap;gap:2px;justify-content:center;
+  padding:2px 3px 4px;}
 .pill{font-size:.5rem;font-weight:700;padding:1px 3px;border-radius:3px;white-space:nowrap;}
 .p-pos{background:#196c2e;color:#7ee787;}
 .p-neg{background:#6e1c1c;color:#ff7b72;}
@@ -81,11 +101,11 @@ st.markdown("""
 
 /* GW banner */
 .gw-banner{background:linear-gradient(135deg,#161b22,#1c2128);
-  border:1px solid #30363d;border-radius:9px;padding:12px 18px;margin-bottom:14px;
+  border:1px solid #30363d;border-radius:9px;padding:14px 20px;margin-bottom:16px;
   display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
 .gw-lbl{font-size:.55rem;font-weight:700;color:#8b949e;
   text-transform:uppercase;letter-spacing:.07em;}
-.gw-name{font-size:.95rem;font-weight:800;}
+.gw-name{font-size:.95rem;font-weight:800;color:#e6edf3;}
 .gw-dt  {font-size:.7rem;color:#8b949e;}
 .gw-tot {font-size:1.5rem;font-weight:900;}
 .gw-pill{background:#21262d;color:#79c0ff;border-radius:5px;

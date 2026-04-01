@@ -61,34 +61,45 @@ SLOT_LABELS = {
 
 def get_eligible_slots(position: str, role: str = "") -> list[str]:
     """
-    Retourne les slots So7 dans lesquels un joueur peut jouer selon sa position.
-    Si la position n'est pas reconnue, on utilise le rôle comme fallback.
+    Retourne les slots So7 éligibles.
+    La position MLB est la source de vérité absolue.
+    Si SP/RP/CL → slots pitcher, quelle que soit la valeur de role.
     """
     pos = position.upper().strip()
+    # La position prime toujours sur le rôle
     slots = POSITION_ELIGIBILITY.get(pos)
     if slots:
         return slots
-    # Fallback par rôle si position inconnue ou générique
-    if role == "pitcher":
+    # Position inconnue → fallback sur le rôle
+    if role == "pitcher" or pos in PITCHER_POSITIONS:
         return ["SP", "RP", "FLEX"]
     return ["XH", "FLEX"]
+
+
+PITCHER_POSITIONS = {"SP", "RP", "CL", "P", "TWP", "LHP", "RHP"}
+
+def _role_from_position(position: str, fallback: str = "hitter") -> str:
+    """Dérive le rôle depuis la position MLB. Plus fiable que le champ role du roster."""
+    return "pitcher" if position.upper() in PITCHER_POSITIONS else fallback
 
 
 def compute_gameweek_scores(start_date: str, end_date: str) -> list[dict]:
     """
     Cumule les scores sur la plage de dates.
-    Rôle pris depuis le roster (source de vérité, mis à jour par sync.py).
+    Le rôle est dérivé de la POSITION MLB (SP/RP → pitcher),
+    ce qui est plus fiable que le champ role qui peut être mal défini.
     """
     roster = db.get_roster()
     result = []
 
     for player in roster:
         pid      = player["player_id"]
-        role     = player.get("role", "hitter")
         position = player.get("position", "?")
+        # Rôle dérivé de la position en priorité, fallback sur le champ role
+        role     = _role_from_position(position, fallback=player.get("role","hitter"))
 
-        scores = db.get_scores_range(pid, start_date, end_date)
-        played = [s for s in scores if s.get("total") is not None]
+        scores   = db.get_scores_range(pid, start_date, end_date)
+        played   = [s for s in scores if s.get("total") is not None]
 
         total_gw     = round(sum(s["total"] for s in played), 2)
         games_played = len(played)
